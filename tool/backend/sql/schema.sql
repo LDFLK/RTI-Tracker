@@ -1,6 +1,6 @@
 -- schema.sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE TYPE rti_direction AS ENUM ('sent','received');
+    CREATE TYPE rti_direction AS ENUM ('sent','received');
 
 -- Create Tables
 -- SENDERS TABLE
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS rti_status_histories (
     rti_request_id uuid NOT NULL REFERENCES rti_requests(id),
     status_id uuid NOT NULL REFERENCES rti_statuses(id),
     direction rti_direction DEFAULT 'sent' NOT NULL,
-    description TEXT NOT NULL,
+    description TEXT,
     entry_time TIMESTAMPTZ NOT NULL,
     exit_time TIMESTAMPTZ,
     file VARCHAR,
@@ -86,8 +86,21 @@ CREATE TABLE IF NOT EXISTS rti_status_histories (
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Check Constraints
+-- SENDERS TABLE 
+ALTER TABLE senders DROP CONSTRAINT IF EXISTS check_senders_email_or_contact_no;
+ALTER TABLE senders 
+ADD CONSTRAINT check_senders_email_or_contact_no
+CHECK (email IS NOT NULL OR contact_no IS NOT NULL);
+
+-- RECEIVERS TABLE 
+ALTER TABLE receivers DROP CONSTRAINT IF EXISTS check_receivers_email_or_contact_no;
+ALTER TABLE receivers 
+ADD CONSTRAINT check_receivers_email_or_contact_no
+CHECK (email IS NOT NULL OR contact_no IS NOT NULL);
+
 -- Foreign Key Indexes 
--- Receivers TABLE
+-- RECEIVERS TABLE
 CREATE INDEX IF NOT EXISTS idx_receivers_position_id ON receivers(position_id);
 CREATE INDEX IF NOT EXISTS idx_receivers_institution_id ON receivers(institution_id);
 
