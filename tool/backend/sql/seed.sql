@@ -119,4 +119,28 @@ INSERT INTO rti_status_histories (rti_request_id, status_id, direction, descript
 ((SELECT id FROM rti_requests WHERE title = 'Environmental Clearance List' LIMIT 1), (SELECT id FROM rti_statuses WHERE name = 'APPROVED' LIMIT 1), 'sent', 'Approved by Senior Secretary.', NOW() - INTERVAL '1 day', NOW() - INTERVAL '1 hour', NULL),
 ((SELECT id FROM rti_requests WHERE title = 'Environmental Clearance List' LIMIT 1), (SELECT id FROM rti_statuses WHERE name = 'SENT_TO_RECEIVER' LIMIT 1), 'sent', 'Emailed to CEA.', NOW() - INTERVAL '1 hour', NULL, NULL);
 
+-- 9.  RECORD UPDATES
+-- Scenario 1: Update a sender
+UPDATE senders 
+SET contact_no = '0779998887', address = 'Kandy', updated_at = NOW() 
+WHERE name = 'Amal Perera';
 
+-- Scenario 2: Update an RTI request
+UPDATE rti_requests 
+SET description = 'Requesting detailed breakdown of medicine availability for Colombo South Hospital.', updated_at = NOW() 
+WHERE title = 'Inquiry on Hospital Supplies';
+
+-- Scenario 3: Update an RTI template 
+UPDATE rti_templates
+SET file = 'templates/v2/edu_data.pdf', updated_at = NOW()
+WHERE title = 'Education Data Request';
+
+-- Scenario 4: Update a receiver
+UPDATE receivers
+SET email = 'do.edu.updated@gov.lk', updated_at = NOW()
+WHERE email = 'do.edu@gov.lk';
+
+-- Scenario 5: Update an institution
+UPDATE institutions
+SET name = 'Ministry of Health and Nutrition', updated_at = NOW()
+WHERE name = 'Ministry of Health';
