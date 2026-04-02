@@ -1,6 +1,6 @@
 -- schema.sql
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-    CREATE TYPE rti_direction AS ENUM ('sent','received');
+CREATE TYPE rti_direction AS ENUM ('sent','received');
 
 -- Create Tables
 -- SENDERS TABLE
