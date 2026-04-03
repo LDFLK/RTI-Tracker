@@ -1,0 +1,22 @@
+# docker compose yaml
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: rti-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rti}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rti}
+      POSTGRES_DB: ${POSTGRES_DB:-rti}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql # <-- remove this db seed in production
+      - postgres_data:/var/lib/postgresql/data
+    
+volumes:
+  postgres_data:
