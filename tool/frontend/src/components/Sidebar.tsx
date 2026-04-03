@@ -1,44 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import {
-  FileText,
-  Users,
-  Building,
-  FileCode,
-  CheckCircle,
-  LayoutDashboard } from
-'lucide-react';
+import { FileCode } from 'lucide-react';
+
 export function Sidebar() {
   const navItems = [
-  {
-    name: 'Dashboard',
-    path: '/',
-    icon: LayoutDashboard
-  },
-  {
-    name: 'RTI Requests',
-    path: '/rtis',
-    icon: FileText
-  },
-  {
-    name: 'Templates',
-    path: '/templates',
-    icon: FileCode
-  },
-  {
-    name: 'Senders',
-    path: '/senders',
-    icon: Users
-  },
-  {
-    name: 'Receivers',
-    path: '/receivers',
-    icon: Building
-  },
-  // {
-  //   name: 'Approval Portal',
-  //   path: '/approval',
-  //   icon: CheckCircle
-  // }
+    {
+      name: 'Template Manager',
+      path: '/templates',
+      icon: FileCode
+    }
   ];
 
   return (
@@ -64,11 +33,11 @@ export function Sidebar() {
                 transition-colors
                 ${isActive ? 'bg-blue-50 text-blue-900 border-blue-200 border-l-4 border-l-blue-900' : 'text-gray-700 border-transparent hover:bg-gray-50 hover:border-gray-200'}
               `}>
-              
+
               <Icon className="w-4 h-4" />
               {item.name}
-            </NavLink>);
-
+            </NavLink>
+          );
         })}
       </nav>
 
@@ -76,6 +45,6 @@ export function Sidebar() {
         <p>System Version 1.0.0</p>
         <p className="mt-1">Open-Data Protocol</p>
       </div>
-    </aside>);
-
+    </aside>
+  );
 }
