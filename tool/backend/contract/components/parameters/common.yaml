@@ -1,8 +1,8 @@
-TemplateId:
+ObjectId:
   name: id
   in: path
   required: true
-  description: UUID of the RTI template.
+  description: UUID of the object.
   schema:
     type: string
     format: uuid

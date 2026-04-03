@@ -87,7 +87,7 @@
     security:
       - opaqueBearerToken: []
     parameters:
-      - $ref: "../components/parameters/Templates.yaml#/TemplateId"
+      - $ref: "../components/parameters/common.yaml#/ObjectId"
     responses:
       "200":
         description: RTI template found and returned successfully.
@@ -119,7 +119,7 @@
     security:
       - opaqueBearerToken: []
     parameters:
-      - $ref: "../components/parameters/Templates.yaml#/TemplateId"
+      - $ref: "../components/parameters/common.yaml#/ObjectId"
     requestBody:
       required: true
       description: Multipart form data with updated metadata and an optional new file.
@@ -174,7 +174,7 @@
     security:
       - opaqueBearerToken: []
     parameters:
-      - $ref: "../components/parameters/Templates.yaml#/TemplateId"
+      - $ref: "../components/parameters/common.yaml#/ObjectId"
     responses:
       "204":
         description: RTI template deleted successfully. No content returned.

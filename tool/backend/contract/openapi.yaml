@@ -1,15 +1,19 @@
 openapi: 3.1.0
 
 info:
-  title: RTI Template API
+  title: RTI Tracker API contract
   description: |
-    API for managing RTI (Right to Information) Templates.
-    Templates can be created with an attached file that is stored on GitHub.
+    API for managing RTI application functionalities.
     All endpoints are protected via opaque bearer token authentication.
   version: 1.0.0
+  license:
+    name: |
+      Apache License
+      Version 2.0, January 2004
+    url: http://www.apache.org/licenses/
 
 servers:
-  - url: http://localhost:8080/api/v1
+  - url: http://127.0.0.1:8080/api/v1
     description: Local development server
 
 security:
@@ -20,6 +24,10 @@ paths:
     $ref: "./paths/rti-templates.yaml#/~1rti-templates"
   /rti-templates/{id}:
     $ref: "./paths/rti-templates.yaml#/~1rti-templates~1{id}"
+  /institutions:
+    $ref: "./paths/institutions.yaml#/~1institutions"
+  /institution/{id}:
+    $ref: "./paths/institutions.yaml#/~1institution~1{id}"
 
 components:
   securitySchemes:
@@ -32,6 +40,12 @@ components:
       $ref: "./components/schemas/RTITemplates.yaml#/RTITemplateResponse"
     RTITemplateListResponse:
       $ref: "./components/schemas/RTITemplates.yaml#/RTITemplateListResponse"
+    InstitutionRequest:
+      $ref: "./components/schemas/institutions.yaml#/InstitutionRequest"
+    InstitutionResponse:
+      $ref: "./components/schemas/institutions.yaml#/InstitutionResponse"
+    InstitutionsListResponse:
+      $ref: "./components/schemas/institutions.yaml#/InstitutionsListResponse"
     Pagination:
       $ref: "./components/schemas/common.yaml#/Pagination"
     ErrorResponse:
@@ -48,8 +62,8 @@ components:
     InternalServerError:
       $ref: "./components/responses/Errors.yaml#/InternalServerError"
   parameters:
-    TemplateId:
-      $ref: "./components/parameters/Templates.yaml#/TemplateId"
+    ObjectId:
+      $ref: "./components/parameters/common.yaml#/ObjectId"
     PageParam:
       $ref: "./components/parameters/Pagination.yaml#/PageParam"
     PageSizeParam:

@@ -1,0 +1,161 @@
+/institutions:
+  # Create a new institution
+  post:
+    summary: Create an institution
+    operationId: createInstitution
+    description: Create a new institution.
+    tags:
+      - Institution
+    security:
+      - opaqueBearerToken: []
+    requestBody:
+      required: true
+      description: JSON form data with institution metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/institutions.yaml#/InstitutionRequest"
+
+    responses:
+      "201":
+        description: Institution created successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/institutions.yaml#/InstitutionResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Minister of X
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # List all institutions
+  get:
+    summary: List all institutions
+    operationId: listInstitutions
+    description: Returns a paginated list of all institutions.
+    tags:
+      - Institution
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/Pagination.yaml#/PageParam"
+      - $ref: "../components/parameters/Pagination.yaml#/PageSizeParam"
+    responses:
+      "200":
+        description: A paginated list of institutions.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/institutions.yaml#/InstitutionsListResponse"
+            example:
+              data:
+                - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  name: Minister of X
+                  createdAt: "2026-03-31T09:00:00Z"
+                  updatedAt: "2026-03-31T09:00:00Z"
+              pagination:
+                page: 1
+                pageSize: 20
+                totalItems: 84
+                totalPages: 5
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+/institution/{id}:
+  get:
+    summary: Get an institution by ID
+    operationId: getInstitutionById
+    description: Returns a single institution identified by its UUID.
+    tags:
+      - Institution
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/common.yaml#/ObjectId"
+    responses:
+      "200":
+        description: Institution found and returned successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/institutions.yaml#/InstitutionResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Minister of X
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  put:
+    summary: Update an institution
+    operationId: updateInstitution
+    description: Fully replaces an institution.
+    tags:
+      - Institution
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/common.yaml#/ObjectId"
+    requestBody:
+      required: true
+      description: JSON form data with updated metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/institutions.yaml#/InstitutionRequest"
+    responses:
+      "200":
+        description: Institution updated successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/institutions.yaml#/InstitutionResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Updated Minister of X
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  delete:
+    summary: Delete an institution
+    operationId: deleteInstitution
+    description: Permanently deletes an institution by UUID. Returns 204 No Content on success. If the resource is linked with some other resources, cannot be deleted.
+    tags:
+      - Institution
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/common.yaml#/ObjectId"
+    responses:
+      "204":
+        description: Institution deleted successfully. No content returned.
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses/Errors.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
