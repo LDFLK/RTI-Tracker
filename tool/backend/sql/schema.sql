@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS rti_status_histories (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     rti_request_id uuid NOT NULL REFERENCES rti_requests(id),
     status_id uuid NOT NULL REFERENCES rti_statuses(id),
-    direction rti_direction DEFAULT 'sent' NOT NULL,
+    direction rti_direction NOT NULL,
     description TEXT,
     entry_time TIMESTAMPTZ NOT NULL,
     exit_time TIMESTAMPTZ,
