@@ -111,12 +111,34 @@ export function Templates() {
 
   // Sync editor when template changes
   useEffect(() => {
-    if (selectedTemplate) {
-      if (editorRef.current) {
-        editorRef.current.innerHTML = parseMarkdownToHtml(selectedTemplate.file);
+    const loadContent = async () => {
+      if (selectedTemplate) {
+        let content = selectedTemplate.content;
+        
+        // load the file content from the URL if haven't already fetched it
+        if (content === undefined && selectedTemplate.file) {
+          try {
+            const res = await fetch(selectedTemplate.file);
+            content = await res.text();
+            
+            // Cache the downloaded text back into the templates array so we don't fetch it again
+            setTemplates(prev => prev.map(t => 
+              t.id === selectedTemplate.id ? { ...t, content: content } : t
+            ));
+            selectedTemplate.content = content; // update local pointer instantly
+          } catch (e) {
+            console.error("Failed to load file content:", e);
+            content = '';
+          }
+        }
+
+        if (editorRef.current && content !== undefined) {
+          editorRef.current.innerHTML = parseMarkdownToHtml(content || '');
+        }
+        setEditedName(selectedTemplate.title);
       }
-      setEditedName(selectedTemplate.title);
-    }
+    };
+    loadContent();
   }, [selectedTemplate]);
 
   const handleSelect = (template: Template | null) => {
@@ -129,6 +151,7 @@ export function Templates() {
       title: 'Untitled Template',
       description: 'New template',
       file: '',
+      content: '',
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -143,13 +166,13 @@ export function Templates() {
     
     const updatedTemplates = templates.map((t: Template) =>
       t.id === selectedTemplate.id
-        ? { ...t, file: markdown, title: editedName, updatedAt: now }
+        ? { ...t, content: markdown, title: editedName, updatedAt: now }
         : t
     );
     
     const updatedTemplate = {
       ...selectedTemplate,
-      file: markdown,
+      content: markdown,
       title: editedName,
       updatedAt: now
     };

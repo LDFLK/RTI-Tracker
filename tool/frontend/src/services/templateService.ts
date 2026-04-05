@@ -7,7 +7,7 @@ export const templateService = {
    */
   getTemplates: async (): Promise<Template[]> => {
     // TODO: Wire up backend API for fetching all templates
-
+  
     // Simulating network delay
     await new Promise(resolve => setTimeout(resolve, 600));
     return mockTemplates;
@@ -26,7 +26,7 @@ export const templateService = {
     // formData.append('updatedAt', template.updatedAt.toISOString());
     // 
     // Convert the raw markdown string into a physical .md File/Blob
-    // const fileBlob = new Blob([template.file], { type: 'text/markdown' });
+    // const fileBlob = new Blob([template.content || ''], { type: 'text/markdown' });
     // formData.append('file', fileBlob, `${template.title.replace(/\s+/g, '_')}.md`);
     // 
     // await fetch('/api/templates', { method: 'POST', body: formData });
