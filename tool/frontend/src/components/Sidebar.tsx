@@ -40,11 +40,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
-      <div className="p-4 border-t border-gray-200 text-xs text-gray-500">
-        <p>System Version 1.0.0</p>
-        <p className="mt-1">Open-Data Protocol</p>
-      </div>
     </aside>
   );
 }

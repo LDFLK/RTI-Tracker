@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { mockTemplates } from '../data/mockData';
 import { Template } from '../types/rti';
 import { Button } from '../components/Button';
-import { Save, Plus, Move, Trash2, X, Bold, Heading1, Heading2, Type } from 'lucide-react';
+import { Save, Plus, Move, Trash2, Bold, Heading1, Heading2, Type } from 'lucide-react';
 
 export function Templates() {
   const [templates, setTemplates] = useState<Template[]>(mockTemplates);
@@ -224,25 +224,25 @@ export function Templates() {
   };
 
   return (
-    <div className="h-[calc(100vh-3rem)] flex flex-col space-y-4">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Template Manager</h1>
+    <div className="flex flex-col space-y-4 lg:h-[calc(100vh-4rem)]">
+      <div className="flex flex-wrap justify-between items-end gap-4">
+        <div className="min-w-[200px]">
+          <h1 className="text-2xl font-bold text-gray-900">RTI Template Manager</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Manage Markdown templates for RTI generation.
+            Manage RTI templates for RTI generation.
           </p>
         </div>
         {templates.length > 0 && (
-          <Button onClick={addNewTemplate} className="flex items-center gap-2">
+          <Button onClick={addNewTemplate} className="flex items-center gap-2 whitespace-nowrap flex-shrink-0">
             <Plus className="w-4 h-4" /> New Template
           </Button>
         )}
       </div>
 
-      <div className="flex-1 flex gap-4 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 lg:overflow-hidden">
         {/* Sidebar */}
         {templates.length > 0 && (
-          <div className="w-60 flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-shrink-0">
+          <div className="w-full lg:w-60 h-80 lg:h-auto flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-shrink-0">
             <div className="p-3 border-b border-gray-200 bg-gray-50/50 font-semibold text-xs uppercase tracking-wider text-gray-500">
               Saved Templates
             </div>
@@ -277,11 +277,11 @@ export function Templates() {
         )}
 
         {/* Smart Editor or Empty State */}
-        <div className="flex-1 flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
+        <div className="flex-1 min-h-[600px] lg:min-h-0 flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
           {templates.length > 0 && selectedTemplate ? (
             <>
-              <div className="p-3 border-b border-gray-200 bg-white flex justify-between items-center z-10">
-                <div className="flex items-center gap-2 flex-1">
+              <div className="p-3 border-b border-gray-200 bg-white flex flex-wrap justify-between items-center gap-2 z-10">
+                <div className="flex items-center gap-2 flex-1 min-w-[150px]">
                   {isEditingName ? (
                     <input
                       autoFocus
@@ -299,7 +299,7 @@ export function Templates() {
                     </span>
                   )}
                 </div>
-                <Button size="sm" variant="primary" onClick={saveTemplate} className="flex items-center gap-2">
+                <Button size="sm" variant="primary" onClick={saveTemplate} className="flex items-center gap-2 whitespace-nowrap flex-shrink-0">
                   <Save className="w-4 h-4" /> Save Template
                 </Button>
               </div>
@@ -354,7 +354,7 @@ export function Templates() {
               <p className="text-gray-500 mb-4 max-w-sm">
                 Get started by creating a new template.
               </p>
-              <Button onClick={addNewTemplate} className="flex items-center gap-2">
+              <Button onClick={addNewTemplate} className="flex items-center gap-2 whitespace-nowrap flex-shrink-0">
                 <Plus className="w-4 h-4" /> Create Template
               </Button>
             </div>
@@ -363,7 +363,7 @@ export function Templates() {
 
         {/* Variables */}
         {templates.length > 0 && (
-          <div className="w-60 flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-shrink-0">
+          <div className="w-full lg:w-60 h-[350px] lg:h-auto flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-shrink-0">
             <div className="p-3 border-b border-gray-200 bg-gray-50/50 font-semibold text-xs uppercase tracking-wider text-gray-500">
               Variables
             </div>
