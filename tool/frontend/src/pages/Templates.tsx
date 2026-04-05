@@ -1,22 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { mockTemplates } from '../data/mockData';
+import { templateService } from '../services/templateService';
 import { Template } from '../types/rti';
 import { Button } from '../components/Button';
 import { Save, Plus, Move, Trash2, Bold, Italic, Heading1, Heading2, Type } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function Templates() {
-  const [templates, setTemplates] = useState<Template[]>(mockTemplates);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
-    mockTemplates.length > 0 ? mockTemplates[0] : null
-  );
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [templateToDelete, setTemplateToDelete] = useState<{id: string, title: string} | null>(null);
 
   const editorRef = useRef<HTMLDivElement>(null);
 
   const [isEditingName, setIsEditingName] = useState(false);
-  const [editedName, setEditedName] = useState(mockTemplates[0].title);
-  const [templateToDelete, setTemplateToDelete] = useState<{id: string, title: string} | null>(null);
+  const [editedName, setEditedName] = useState('');
+  
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      setIsLoading(true);
+      try {
+        const data = await templateService.getTemplates();
+        
+        setTemplates(data);
+        if (data.length > 0) {
+          setSelectedTemplate(data[0]);
+        }
+      } catch (error) {
+        toast.error('Failed to load templates');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTemplates();
+  }, []);
 
   const variables = [
     { name: 'date', code: '{{date}}', desc: 'Current Date' },
@@ -127,13 +147,16 @@ export function Templates() {
         : t
     );
     
-    setTemplates(updatedTemplates);
-    setSelectedTemplate({
+    const updatedTemplate = {
       ...selectedTemplate,
       file: markdown,
       title: editedName,
       updatedAt: now
-    });
+    };
+    templateService.saveTemplate(updatedTemplate);
+    setTemplates(updatedTemplates);
+    setSelectedTemplate(updatedTemplate);
+    
     setIsEditingName(false);
     toast.success('Template saved successfully!');
   };
@@ -149,6 +172,7 @@ export function Templates() {
     if (selectedTemplate?.id === templateToDelete.id) {
       handleSelect(remaining.length > 0 ? remaining[0] : null);
     }
+    templateService.deleteTemplate(templateToDelete.id);
     toast.success('Template deleted');
     setTemplateToDelete(null);
   };
@@ -376,6 +400,11 @@ export function Templates() {
                 data-enable-grammarly="false"
               />
             </>
+          ) : isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-500 text-sm">Loading templates...</p>
+            </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gray-50/50">
               <p className="text-gray-500 mb-4 max-w-sm">
