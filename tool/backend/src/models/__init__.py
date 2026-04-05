@@ -1,7 +1,8 @@
 from .table_schemas import RTITemplate
-from .common import PaginationModel
+from .common import User, PaginationModel
 
 __all__ = [
     "RTITemplate",
-    "PaginationModel"
+    "PaginationModel",
+    "User"
 ]
