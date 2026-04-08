@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
 
     # asgardio configuration
-    ASGARDIO_ORG: str
+    ASGARDEO_ORG: str
     CLIENT_ID: str
     CLIENT_SECRET: str
 

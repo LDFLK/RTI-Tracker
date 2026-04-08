@@ -5,7 +5,7 @@ from typing import Optional, Any, Dict
 from src.utils import http_client
 from aiohttp import ClientSession
 
-ORG = settings.ASGARDIO_ORG
+ORG = settings.ASGARDEO_ORG
 CLIENT_ID = settings.CLIENT_ID
 CLIENT_SECRET = settings.CLIENT_SECRET
 

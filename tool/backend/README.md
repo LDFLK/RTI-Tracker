@@ -2,54 +2,49 @@
 
 This guide provides the necessary steps to set up the local development environment, seed the database, and authenticate with the Asgardeo identity provider.
 
-## 1. Database Seeding
+## 1. Database Configuration & Seeding
+
 Before running the application, you must initialize the database schema and populate it with initial data.
 
-* **Instruction File:** Refer to `sql/README.md` for specific SQL scripts and database configuration details.
+> **Note:** Please refer to the instructions in `sql/README.md` for specific SQL scripts and database configuration details.
 
-## 2. Environment Setup
-We use `uv` for Python package management. Follow these steps to prepare your environment:
+## 2. Running the Application
 
-```bash
-# Navigate to the backend directory
-cd tool/backend
+Once the database is seeded and the PostgreSQL instance is active, you can start the FastAPI server.
 
-# Create a virtual environment
-python -m venv .venv
-
-# Activate the virtual environment
-# On macOS/Linux:
-source .venv/bin/activate
-# On Windows:
-# .venv\Scripts\activate
-
-# Install required packages
-uv sync
-```
-
-## 3. Running the application
-Once the dependencies are installed and the virtual environment is active, start the FastAPI server:
+We use `uv` for dependency management. The following command will automatically create a virtual environment, install all dependencies listed in `pyproject.toml`, and start the development server:
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Local URL: http://localhost:8000
+After the server starts, you can access the following local endpoints:
+- **Local API:** [http://localhost:8000](http://localhost:8000)
+- **API Documentation (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
 
-API Documentation: http://localhost:8000/docs (Swagger UI)
+## 3. Authentication & Authorization
 
-## 4. Authentication & Authorization
-The API uses Asgardeo for OAuth2 authentication.
+The API uses Asgardeo for OAuth2 authentication. You will need an access token to interact with protected endpoints.
 
-#### A. Generate Client Credentials
-To generate the Base64 encoded string for your Authorization: Basic header, use the following command:
+### A. Generate Client Credentials
+
+To retrieve an `access_token`, you first need a Base64 encoded string of your client credentials (`client_id:client_secret`) for the `Authorization: Basic` header. 
+
+Replace `client_ID` and `client_secret` with the values provided in the Asgardeo console for your registered application, and run the following command to generate the encoded string:
 
 ```bash
 echo -n "client_ID:client_secret" | base64
 ```
 
-#### B. Fetch Access Token
-Use the following curl request to obtain an OpenID Connect (OIDC) token. This token is required to access protected endpoints.
+### B. Fetch Access Token
+
+Once you have the Base64 encoded credentials, use the following `curl` request to obtain an OpenID Connect (OIDC) token. 
+
+Make sure to replace the placeholder values in the command:
+- `{org}`: Your Asgardeo organization name.
+- `{base64<client_id:client_secret>}`: The Base64 string generated in the previous step.
+- `{username}`: Your Asgardeo username.
+- `{password}`: Your Asgardeo password.
 
 ```bash
 curl --location 'https://api.asgardeo.io/t/{org}/oauth2/token' \
@@ -61,3 +56,20 @@ curl --location 'https://api.asgardeo.io/t/{org}/oauth2/token' \
 --data-urlencode 'scope=openid email groups'
 ```
 
+### C. Using the Access Token
+
+A successful response will return a JSON payload containing your authentication tokens:
+
+```json
+{
+  "access_token": "eyJhbGciOiJSUzI...",
+  "scope": "openid email groups",
+  "id_token": "eyJhbGciOiJSUzI..."
+}
+```
+
+Extract the `access_token` from this response. You must include it as a **Bearer token** in the `Authorization` header when making requests to protected API endpoints:
+
+```http
+Authorization: Bearer <your_access_token>
+```
