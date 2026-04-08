@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { templateService } from '../services/templateService';
 import { Template } from '../types/rti';
 import { Button } from '../components/Button';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Save, Plus, Move, Trash2, Bold, Italic, Heading1, Heading2, Type } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Pagination } from '../components/Pagination';
@@ -527,33 +527,14 @@ export function Templates() {
         )}
       </div>
 
-      {templateToDelete && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/10 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-lg font-bold text-gray-900">Delete Template?</h3>
-              <p className="text-sm text-gray-500">
-                Are you sure you want to delete "{templateToDelete.title}"? This action cannot be undone.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 mt-2">
-              <Button
-                className="bg-gray-400 border border-gray-200 text-gray-700 hover:bg-gray-500"
-                onClick={() => setTemplateToDelete(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="bg-red-600 hover:bg-red-700 text-white shadow-sm"
-                onClick={confirmDelete}
-              >
-                Delete Template
-              </Button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ConfirmDialog
+        open={!!templateToDelete}
+        title="Delete Template?"
+        message={`Are you sure you want to delete "${templateToDelete?.title}"? This action cannot be undone.`}
+        onCancel={() => setTemplateToDelete(null)}
+        onConfirm={confirmDelete}
+        confirmText="Delete Template"
+      />
     </div>
   );
 }
