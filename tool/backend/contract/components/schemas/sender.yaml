@@ -1,0 +1,45 @@
+Sender:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      description: Unique identifier of the sender.
+    name:
+      type: string
+      example: John Doe
+      description: name of the sneder.
+    email:
+      type: string
+      example: [EMAIL_ADDRESS]
+      description: Email of the sender.
+    address:
+      type: string
+      example: 123 Main St, Colombo 01
+      description: Address of the sender.
+    contactNumber:
+      type: string
+      example: "0771234567"
+      description: Contact number of the sender.
+    createdAt:
+      type: string
+      format: date-time
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the template was created (UTC).
+    updatedAt:
+      type: string
+      format: date-time
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the template was last updated (UTC).
+
+SenderListResponse:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/Sender"
+      description: List of senders for the current page.
+    pagination:
+      $ref: "common.yaml#/Pagination"
