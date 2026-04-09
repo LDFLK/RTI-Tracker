@@ -87,24 +87,18 @@ export const receiversService = {
     receivers = receivers.filter(r => r.id !== id);
   },
 
-  async listInstitutions(page: number, pageSize: number, search?: string) {
+  async listInstitutions(page: number, pageSize: number) {
     await sleep();
     
-    let filtered = [...institutions];
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(i => i.name.toLowerCase().includes(q));
-    }
-
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return {
-      data: filtered.slice(start, end),
+      data: institutions.slice(start, end),
       pagination: {
         page,
         pageSize,
-        totalItems: filtered.length,
-        totalPages: Math.ceil(filtered.length / pageSize)
+        totalItems: institutions.length,
+        totalPages: Math.ceil(institutions.length / pageSize)
       }
     };
   },
@@ -132,24 +126,18 @@ export const receiversService = {
     institutions = institutions.filter(i => i.id !== id);
   },
 
-  async listPositions(page: number, pageSize: number, search?: string) {
+  async listPositions(page: number, pageSize: number) {
     await sleep();
-
-    let filtered = [...positions];
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(p => p.name.toLowerCase().includes(q));
-    }
 
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return {
-      data: filtered.slice(start, end),
+      data: positions.slice(start, end),
       pagination: {
         page,
         pageSize,
-        totalItems: filtered.length,
-        totalPages: Math.ceil(filtered.length / pageSize)
+        totalItems: positions.length,
+        totalPages: Math.ceil(positions.length / pageSize)
       }
     };
   },

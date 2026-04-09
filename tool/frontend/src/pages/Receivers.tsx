@@ -187,6 +187,8 @@ export function Receivers() {
             title={tab === 'institutions' ? 'Institution' : 'Position'}
             onAdd={() => openNameModal(tab === 'institutions' ? 'institution' : 'position')}
             {...(tab === 'institutions' ? institutionsHook : positionsHook)}
+            searchTerm={undefined}
+            onSearch={undefined}
             columns={simpleEntityColumns}
             onEdit={item => openNameModal(tab === 'institutions' ? 'institution' : 'position', item as any)}
             onDelete={item => setDeleteConfirm({ id: (item as any).id, type: tab })}
