@@ -1,42 +1,17 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { Plus } from 'lucide-react';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Modal } from '../components/Modal';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { DataTable } from '../components/DataTable';
+import { TabButton } from '../components/TabButton';
+import { SectionHeader } from '../components/SectionHeader';
 import { receiversService } from '../services/receiversService';
 import { Institution, Position, Receiver } from '../types/db';
 import { useEntityData } from '../hooks/useEntityData';
 
 type TabKey = 'receivers' | 'institutions' | 'positions';
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-2 text-sm font-medium rounded border transition-colors ${
-        active
-          ? 'bg-blue-50 text-blue-900 border-blue-200 border-l-4 border-l-blue-900'
-          : 'text-gray-700 border-transparent hover:bg-gray-50 hover:border-gray-200'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SectionHeader({ title, onAdd }: { title: string; onAdd: () => void }) {
-  return (
-    <div className="p-3 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between gap-3">
-      <div className="font-semibold text-xs uppercase tracking-wider text-gray-500">{title} List</div>
-      <Button onClick={onAdd} size="sm" className="flex items-center gap-2 whitespace-nowrap">
-        <Plus className="w-4 h-4" /> New {title}
-      </Button>
-    </div>
-  );
-}
 
 export function Receivers() {
   const [tab, setTab] = useState<TabKey>('receivers');
