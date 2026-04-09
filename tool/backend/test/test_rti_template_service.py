@@ -10,11 +10,6 @@ from src.core.exceptions import InternalServerException
 from sqlmodel import SQLModel, Session, create_engine, select
 from src.models import RTITemplate
 
-
-# ---------------------------------------------------------------------------
-# Existing tests — DO NOT MODIFY
-# ---------------------------------------------------------------------------
-
 @pytest.mark.asyncio
 async def test_get_rti_templates_default(in_memory_db, make_file_service):
     absolute_url = "https://github.com/org/repo/blob/main/rti-templates/some-uuid.md"
