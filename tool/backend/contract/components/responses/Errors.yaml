@@ -11,7 +11,7 @@ Unauthorized:
         timestamp: "2026-03-31T09:00:00Z"
 
 NotFound:
-  description: The requested RTI template was not found.
+  description: The requested entity was not found.
   content:
     application/json:
       schema:
@@ -19,7 +19,7 @@ NotFound:
       example:
         status: 404
         error: Not Found
-        message: "RTI template with id '3fa85f64-5717-4562-b3fc-2c963f66afa6' was not found."
+        message: "Entity was not found."
         timestamp: "2026-03-31T09:00:00Z"
 
 UnprocessableEntity:
@@ -31,7 +31,7 @@ UnprocessableEntity:
       example:
         status: 422
         error: Unprocessable Entity
-        message: "Validation failed: file must be a supported document type."
+        message: "Unprocessable Entity"
         timestamp: "2026-03-31T09:00:00Z"
 
 Conflict:
@@ -43,7 +43,7 @@ Conflict:
       example:
         status: 409
         error: Resource Conflict
-        message: "Template deletion failed: Due to resource conflict"
+        message: "Failed due to resource conflict"
         timestamp: "2026-03-31T09:00:00Z"
 
 InternalServerError:

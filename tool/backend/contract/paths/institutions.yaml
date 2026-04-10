@@ -105,7 +105,7 @@
   put:
     summary: Update an institution
     operationId: updateInstitution
-    description: Fully replaces an institution.
+    description: Updates the name of an institution.
     tags:
       - Institution
     security:

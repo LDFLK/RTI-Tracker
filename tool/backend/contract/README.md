@@ -24,5 +24,5 @@ npx -y @redocly/cli lint openapi.yaml > lint_output.txt
 ### Bundle everything for sharing
 Once you're satisfied with your changes or need to hand the spec to external consumers, bundle all the files into one monolithic file:
 ```bash
-npx @redocly/cli bundle openapi.yaml -o bundled_openapi.yaml
+npx @redocly/cli bundle openapi.yaml -o openapi_bundled.yaml
 ```
