@@ -73,11 +73,11 @@ export function Receivers() {
 
   const saveReceiver = async () => {
     const { institutionId, positionId, email, contactNo, address } = receiverForm;
-    const payload = { 
-      institutionId, positionId, 
-      email: email.trim() || null, 
-      contactNo: contactNo.trim() || null, 
-      address: address.trim() || null 
+    const payload = {
+      institutionId, positionId,
+      email: email.trim() || null,
+      contactNo: contactNo.trim() || null,
+      address: address.trim() || null
     };
 
     if (!payload.institutionId || !payload.positionId) return toast.error('Institution and Position are required');
@@ -86,7 +86,7 @@ export function Receivers() {
     try {
       if (receiverEdit) await receiversService.updateReceiver(receiverEdit.id, payload);
       else await receiversService.createReceiver(payload);
-      
+
       toast.success(`Receiver ${receiverEdit ? 'updated' : 'created'}`);
       setReceiverModalOpen(false);
       receiversHook.onPageChange(receiversHook.pagination.page);
@@ -131,7 +131,7 @@ export function Receivers() {
       }
 
       toast.success(`${type} ${edit ? 'updated' : 'created'}`);
-      
+
       if (!edit && isRedirecting === type && res) {
         setReceiverForm(s => ({ ...s, [`${type}Id`]: res.id }));
         setTab('receivers');
@@ -251,9 +251,10 @@ export function Receivers() {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact No</label>
             <input
+              type="tel"
               className="px-3 py-2 rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-900"
               value={receiverForm.contactNo}
-              onChange={e => setReceiverForm(s => ({ ...s, contactNo: e.target.value }))}
+              onChange={e => setReceiverForm(s => ({ ...s, contactNo: e.target.value.replace(/\D/g, '') }))}
               placeholder="Phone number"
             />
           </div>
