@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     CLIENT_ID: str
     CLIENT_SECRET: str
 
+    # github configuration
+    GITHUB_TOKEN: str
+    GITHUB_REPO_NAME: str
+    GITHUB_BRANCH: str
+
     # http client configuration
     HTTP_POOL_SIZE: int = 50 
     HTTP_POOL_SIZE_PER_HOST: int = 40
@@ -30,3 +35,4 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
+

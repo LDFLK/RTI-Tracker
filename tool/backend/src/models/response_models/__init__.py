@@ -1,6 +1,8 @@
-from .rti_templates import RTITemplateResponse, RTITemplateListResponse
+from .rti_templates import RTITemplateResponse, RTITemplateListResponse, RTITemplateRequest
 
 __all__ = [
     "RTITemplateResponse",
-    "RTITemplateListResponse"
+    "RTITemplateListResponse",
+    "RTITemplateRequest"
 ]
+

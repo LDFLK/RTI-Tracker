@@ -18,6 +18,13 @@ class BaseAPIException(Exception):
             message=self.message
         )
 
+class BadRequestException(BaseAPIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    error_code = "Bad Request"
+
+    def __init__(self, message: str = "Bad request"):
+        super().__init__(message)
+
 class UnauthorizedException(BaseAPIException):
     status_code = status.HTTP_401_UNAUTHORIZED
     error_code = "Unauthorized"
@@ -66,3 +73,4 @@ async def api_exception_handler(request: Request, exc: BaseAPIException):
         status_code=exc.status_code,
         content=exc.to_response().model_dump(mode="json")
     )
+    
