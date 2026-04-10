@@ -83,6 +83,10 @@ export function Receivers() {
     if (!payload.institutionId || !payload.positionId) return toast.error('Institution and Position are required');
     if (!payload.email && !payload.contactNo) return toast.error('Email or Contact No is required');
 
+    if (payload.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      return toast.error('Please enter a valid email address');
+    }
+
     try {
       if (receiverEdit) await receiversService.updateReceiver(receiverEdit.id, payload);
       else await receiversService.createReceiver(payload);
@@ -242,6 +246,7 @@ export function Receivers() {
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</label>
             <input
+              type="email"
               className="px-3 py-2 rounded border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-900"
               value={receiverForm.email}
               onChange={e => setReceiverForm(s => ({ ...s, email: e.target.value }))}
