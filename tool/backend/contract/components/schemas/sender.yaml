@@ -1,9 +1,13 @@
 Sender:
   type: object
+  required:
+    - name
+    - email
   properties:
     id:
       type: string
       format: uuid
+      readOnly: true
       example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       description: Unique identifier of the sender.
     name:
@@ -25,11 +29,13 @@ Sender:
     createdAt:
       type: string
       format: date-time
+      readOnly: true
       example: "2026-03-31T09:00:00Z"
       description: ISO 8601 timestamp of when the sender was created (UTC).
     updatedAt:
       type: string
       format: date-time
+      readOnly: true
       example: "2026-03-31T09:00:00Z"
       description: ISO 8601 timestamp of when the sender was last updated (UTC).
 

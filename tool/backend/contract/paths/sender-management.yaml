@@ -126,20 +126,7 @@
       content:
         application/json:
           schema:
-            type: object
-            properties:
-              name:
-                type: string
-                example: John Doe
-              email:
-                type: string
-                example: [EMAIL_ADDRESS]
-              address:
-                type: string
-                example: 123 Main St, Colombo 01
-              contactNumber:
-                type: string
-                example: "0771234567"
+            $ref: "../components/schemas/sender.yaml#/Sender"
     responses:
       "200":
         description: sender updated successfully.
