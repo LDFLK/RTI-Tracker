@@ -3,7 +3,7 @@
   post:
     summary: Create a sender
     operationId: createSender
-    description: Creates a new sender. The file is uploaded to GitHub and its URL is returned in `file`.
+    description: Creates a new sender.
     tags:
       - Sender Management
     security:
@@ -12,7 +12,7 @@
       required: true
       description: sender details
       content:
-        multipart/form-data:
+        application/json:
           schema:
             $ref: "../components/schemas/sender.yaml#/Sender"
     responses:
@@ -86,7 +86,7 @@
     security:
       - opaqueBearerToken: []
     parameters:
-      - $ref: "../components/parameters/Templates.yaml#/TemplateId"
+      - $ref: "../components/parameters/Senders.yaml#/SenderId"
     responses:
       "200":
         description: sender found and returned successfully.
@@ -113,18 +113,18 @@
   put:
     summary: Update an sender
     operationId: updateSender
-    description: Fully replaces an sender.
+    description: Fully replaces a sender.
     tags:
       - Sender Management
     security:
       - opaqueBearerToken: []
     parameters:
-      - $ref: "../components/parameters/Templates.yaml#/TemplateId"
+      - $ref: "../components/parameters/Senders.yaml#/SenderId"
     requestBody:
       required: true
       description: sender details
       content:
-        multipart/form-data:
+        application/json:
           schema:
             type: object
             properties:
@@ -168,13 +168,13 @@
   delete:
     summary: Delete an sender
     operationId: deleteSender
-    description: Permanently deletes an sender by UUID. Returns 204 No Content on success. If the resource is linked with some other resources, cannot be deleted.
+    description: Permanently deletes a sender by UUID. Returns 204 No Content on success. If the resource is linked with other resources, it cannot be deleted.
     tags:
       - Sender Management
     security:
       - opaqueBearerToken: []
     parameters:
-      - $ref: "../components/parameters/Templates.yaml#/TemplateId"
+      - $ref: "../components/parameters/Senders.yaml#/SenderId"
     responses:
       "204":
         description: sender deleted successfully. No content returned.

@@ -1,0 +1,10 @@
+SenderId:
+  name: id
+  in: path
+  required: true
+  description: The UUID of the sender
+  schema:
+    type: string
+    format: uuid
+  example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+

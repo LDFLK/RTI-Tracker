@@ -9,7 +9,7 @@ Sender:
     name:
       type: string
       example: John Doe
-      description: name of the sneder.
+      description: name of the sender.
     email:
       type: string
       example: [EMAIL_ADDRESS]
@@ -26,12 +26,12 @@ Sender:
       type: string
       format: date-time
       example: "2026-03-31T09:00:00Z"
-      description: ISO 8601 timestamp of when the template was created (UTC).
+      description: ISO 8601 timestamp of when the sender was created (UTC).
     updatedAt:
       type: string
       format: date-time
       example: "2026-03-31T09:00:00Z"
-      description: ISO 8601 timestamp of when the template was last updated (UTC).
+      description: ISO 8601 timestamp of when the sender was last updated (UTC).
 
 SenderListResponse:
   type: object
