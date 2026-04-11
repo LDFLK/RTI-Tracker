@@ -28,6 +28,12 @@ paths:
   /institutions/{id}:
     $ref: "./paths/institutions.yaml#/~1institutions~1{id}"
 
+  # positions paths
+  /positions:
+    $ref: "./paths/positions.yaml#/~1positions"
+  /positions/{id}:
+    $ref: "./paths/positions.yaml#/~1positions~1{id}"
+
 components:
   securitySchemes:
     opaqueBearerToken:

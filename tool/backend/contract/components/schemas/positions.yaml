@@ -1,0 +1,43 @@
+PositionRequest:
+  type: object
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      example: Minister
+      description: Human-readable position name
+
+PositionResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      description: Unique identifier of the position.
+    name:
+      type: string
+      example: Minister
+      description: Name of the position.
+    createdAt:
+      type: string
+      format: date-time
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the position was created (UTC).
+    updatedAt:
+      type: string
+      format: date-time
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the position was last updated (UTC).
+
+PositionsListResponse:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/PositionResponse"
+      description: List of positions for the current page.
+    pagination:
+      $ref: "common.yaml#/Pagination"

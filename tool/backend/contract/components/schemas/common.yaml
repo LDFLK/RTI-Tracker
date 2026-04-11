@@ -15,7 +15,7 @@ Pagination:
     totalItems:
       type: integer
       example: 84
-      description: Total number of RTI templates available.
+      description: Total number of items available.
     totalPages:
       type: integer
       example: 5

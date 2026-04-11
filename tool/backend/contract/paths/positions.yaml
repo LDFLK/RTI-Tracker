@@ -1,0 +1,164 @@
+/positions:
+  # create a new position
+  post:
+    summary: Create a position
+    operationId: createPosition
+    description: Create a new position.
+    tags:
+      - Positions
+    security:
+      - opaqueBearerToken: []
+    requestBody:
+      required: true
+      description: JSON request body with position metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/positions.yaml#/PositionRequest"
+
+    responses:
+      "201":
+        description: Position created successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/positions.yaml#/PositionResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Minister
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # List all positions
+  get:
+    summary: List all positions
+    operationId: listPositions
+    description: Returns a paginated list of all positions.
+    tags:
+      - Positions
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/Pagination.yaml#/PageParam"
+      - $ref: "../components/parameters/Pagination.yaml#/PageSizeParam"
+    responses:
+      "200":
+        description: A paginated list of positions.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/positions.yaml#/PositionsListResponse"
+            example:
+              data:
+                - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  name: Minister
+                  createdAt: "2026-03-31T09:00:00Z"
+                  updatedAt: "2026-03-31T09:00:00Z"
+              pagination:
+                page: 1
+                pageSize: 20
+                totalItems: 84
+                totalPages: 5
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+/positions/{id}:
+  # Get a single position by ID
+  get:
+    summary: Get a position by ID
+    operationId: getPositionById
+    description: Returns a single position identified by its UUID.
+    tags:
+      - Positions
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/object.yaml#/ObjectId"
+    responses:
+      "200":
+        description: Position found and returned successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/positions.yaml#/PositionResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Minister
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # Update a single position by ID
+  put:
+    summary: Update a position
+    operationId: updatePosition
+    description: Fully replaces a position.
+    tags:
+      - Positions
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/object.yaml#/ObjectId"
+    requestBody:
+      required: true
+      description: JSON request body with position metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/positions.yaml#/PositionRequest"
+    responses:
+      "200":
+        description: Position updated successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/positions.yaml#/PositionResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Minister
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # Delete a single position by ID
+  delete:
+    summary: Delete a position
+    operationId: deletePosition
+    description: Permanently deletes a position by UUID. Returns 204 No Content on success. If the resource is linked with some other resources, cannot be deleted.
+    tags:
+      - Positions
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/object.yaml#/ObjectId"
+    responses:
+      "204":
+        description: Position deleted successfully. No content returned.
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses/Errors.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
