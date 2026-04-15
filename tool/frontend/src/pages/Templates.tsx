@@ -386,6 +386,7 @@ export function Templates() {
                 currentPage={pagination.page}
                 totalPages={pagination.totalPages}
                 onPageChange={(nextPage) => fetchTemplates(nextPage)}
+                variant="simple"
               />
             </div>
           </div>

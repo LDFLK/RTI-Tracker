@@ -114,13 +114,14 @@ export function DataTable<T>({
       {title && <TableHeader title={title} onAdd={onAdd!} searchTerm={searchTerm} onSearch={onSearch} />}
       {content}
       {pagination && !loading && pagination.totalPages > 1 && onPageChange && (
-        <div className="p-3 border-t border-gray-100 bg-gray-50/30">
-          <PaginationComponent
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            onPageChange={onPageChange}
-          />
-        </div>
+        <PaginationComponent
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.pageSize}
+          totalItems={pagination.totalItems}
+          onPageChange={onPageChange}
+          variant="full"
+        />
       )}
     </div>
   );
