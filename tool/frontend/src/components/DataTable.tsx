@@ -50,7 +50,8 @@ export function DataTable<T>({
   emptyMessage = "No data found.",
   rowKey = 'id' as any,
   pagination,
-  onPageChange
+  onPageChange,
+  onPageSizeChange
 }: TableProps<T>) {
 
   const getKey = (item: T): string => {
@@ -113,14 +114,16 @@ export function DataTable<T>({
     <div className="flex flex-col">
       {title && <TableHeader title={title} onAdd={onAdd!} searchTerm={searchTerm} onSearch={onSearch} />}
       {content}
-      {pagination && !loading && pagination.totalPages > 1 && onPageChange && (
+      {pagination && data.length > 0 && onPageChange && (
         <PaginationComponent
           currentPage={pagination.page}
           totalPages={pagination.totalPages}
           pageSize={pagination.pageSize}
           totalItems={pagination.totalItems}
           onPageChange={onPageChange}
+          onPageSizeChange={onPageSizeChange}
           variant="full"
+          loading={loading}
         />
       )}
     </div>

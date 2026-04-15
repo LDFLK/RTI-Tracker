@@ -17,11 +17,12 @@ export function useEntityData<T>(
     totalPages: 1,
     totalItems: 0,
   });
+  const [currentPageSize, setCurrentPageSize] = useState(pageSize);
 
-  const loadData = useCallback(async (page: number = 1, search: string = searchTerm) => {
+  const loadData = useCallback(async (page: number = 1, size: number = currentPageSize, search: string = searchTerm) => {
     setLoading(true);
     try {
-      const res = await listFn(page, pageSize, search);
+      const res = await listFn(page, size, search);
       setData(res.data);
       setPagination(res.pagination);
     } catch (e) {
@@ -29,7 +30,12 @@ export function useEntityData<T>(
     } finally {
       setLoading(false);
     }
-  }, [listFn, entityLabel, pageSize, searchTerm]);
+  }, [listFn, entityLabel, currentPageSize, searchTerm]);
+
+  const onPageSizeChange = (newSize: number) => {
+    setCurrentPageSize(newSize);
+    loadData(1, newSize);
+  };
 
   // Debounced search
   const searchTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -37,7 +43,7 @@ export function useEntityData<T>(
     setSearchTerm(value);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      loadData(1, value);
+      loadData(1, currentPageSize, value);
     }, 500);
   };
 
@@ -57,11 +63,11 @@ export function useEntityData<T>(
   }, [removeFn, entityLabel, data.length, pagination.page, loadData]);
 
   useEffect(() => {
-    loadData(1);
+    loadData(1, currentPageSize);
     return () => {
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
     };
-  }, [listFn]);
+  }, [listFn, currentPageSize, loadData]);
 
   return {
     data,
@@ -70,6 +76,7 @@ export function useEntityData<T>(
     onSearch,
     pagination,
     onPageChange: loadData,
+    onPageSizeChange,
     confirmDelete,
     setData,
   };

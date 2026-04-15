@@ -5,24 +5,28 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   pageSize?: number;
   totalItems?: number;
   variant?: 'simple' | 'full';
   className?: string;
+  loading?: boolean;
 }
 
 export function Pagination({
   currentPage,
   totalPages,
   onPageChange,
+  onPageSizeChange,
   pageSize = 10,
   totalItems = 0,
   variant = 'simple',
-  className = ''
+  className = '',
+  loading = false
 }: PaginationProps) {
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1 && variant === 'simple') return null;
 
-  // Simple Variant (Original Look)
+  // Simple Variant
   if (variant === 'simple') {
     return (
       <div className={`flex items-center justify-between gap-2 ${className}`}>
@@ -30,8 +34,8 @@ export function Pagination({
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="px-2 disabled:opacity-50"
+          disabled={currentPage <= 1 || loading}
+          className={`px-2 disabled:opacity-50 ${loading ? 'cursor-wait' : ''}`}
           title="Previous Page"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -51,8 +55,8 @@ export function Pagination({
           variant="outline"
           size="sm"
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="px-2 disabled:opacity-50"
+          disabled={currentPage >= totalPages || loading}
+          className={`px-2 disabled:opacity-50 ${loading ? 'cursor-wait' : ''}`}
           title="Next Page"
         >
           <ChevronRight className="w-4 h-4" />
@@ -61,7 +65,7 @@ export function Pagination({
     );
   }
 
-  // Full Variant (Modern - Light Theme)
+  // Full Variant
   const startIdx = (currentPage - 1) * pageSize + 1;
   const endIdx = Math.min(currentPage * pageSize, totalItems);
 
@@ -82,26 +86,42 @@ export function Pagination({
   };
 
   return (
-    <div className={`flex items-center justify-between border-t border-gray-200 px-4 py-3 sm:px-6 ${className}`}>
+    <div className={`flex items-center justify-between border-t border-gray-200 px-4 py-2 sm:px-6 ${className}`}>
       <div className="flex flex-1 justify-between sm:hidden">
         <button
           onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
-          className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={currentPage <= 1 || loading}
+          className={`relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${loading ? 'cursor-wait' : ''}`}
         >
           Previous
         </button>
         <button
           onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={currentPage >= totalPages || loading}
+          className={`relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${loading ? 'cursor-wait' : ''}`}
         >
           Next
         </button>
       </div>
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm text-gray-700">
+        <div className="flex items-center gap-4">
+          {onPageSizeChange && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 whitespace-nowrap">Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                disabled={loading}
+                className={`text-sm border border-gray-300 rounded px-1 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-900/10 focus:border-blue-900 transition-all cursor-pointer disabled:opacity-50 ${loading ? 'cursor-wait' : ''}`}
+              >
+                {[5, 10, 25, 50, 100].map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <span className="text-sm text-gray-500 whitespace-nowrap">rows</span>
+            </div>
+          )}
+          <p className={`text-sm text-gray-700 ${onPageSizeChange ? 'border-l border-gray-200 pl-4' : ''}`}>
             Showing <span className="font-medium">{startIdx}</span> to <span className="font-medium">{endIdx}</span> of{' '}
             <span className="font-medium">{totalItems}</span> results
           </p>
@@ -110,8 +130,8 @@ export function Pagination({
           <nav aria-label="Pagination" className="isolate inline-flex -space-x-px rounded-md shadow-sm">
             <button
               onClick={() => onPageChange(currentPage - 1)}
-              disabled={currentPage <= 1}
-              className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={currentPage <= 1 || loading}
+              className={`relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed ${loading ? 'cursor-wait' : ''}`}
             >
               <span className="sr-only">Previous</span>
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="w-5 h-5">
@@ -135,11 +155,12 @@ export function Pagination({
                   key={page}
                   onClick={() => onPageChange(page as number)}
                   aria-current={isCurrent ? 'page' : undefined}
+                  disabled={loading}
                   className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
                     isCurrent
                       ? 'z-10 bg-blue-900 text-white focus-visible:outline-blue-900'
                       : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
-                  }`}
+                  } ${loading ? 'cursor-wait disabled:opacity-70' : ''}`}
                 >
                   {page}
                 </button>
@@ -147,8 +168,8 @@ export function Pagination({
             })}
             <button
               onClick={() => onPageChange(currentPage + 1)}
-              disabled={currentPage >= totalPages}
-              className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={currentPage >= totalPages || loading}
+              className={`relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed ${loading ? 'cursor-wait' : ''}`}
             >
               <span className="sr-only">Next</span>
               <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="w-5 h-5">

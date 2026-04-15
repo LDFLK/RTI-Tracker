@@ -18,6 +18,7 @@ export interface TableProps<T> {
   rowKey?: keyof T | ((item: T) => string);
   pagination?: Pagination;
   onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   title?: string;
   onAdd?: () => void;
   searchTerm?: string;
