@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, func
 
 class RTITemplate(SQLModel, table=True):
     __tablename__ = "rti_templates"
@@ -12,4 +12,8 @@ class RTITemplate(SQLModel, table=True):
     description: Optional[str] = Field(None, description="Detailed description of the RTI template")
     file: str = Field(..., description="URL of the RTI template markdown file")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="ISO 8601 timestamp of when the template was created")
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="ISO 8601 timestamp of when the template was last updated")
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column_kwargs={"onupdate": func.now()},
+        description="ISO 8601 timestamp of when the template was last updated"
+    )

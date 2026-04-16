@@ -136,9 +136,6 @@ class RTITemplateService:
             if template_request.description:
                 rti_template.description = template_request.description
 
-            # add the last update timestamp
-            rti_template.updated_at = datetime.datetime.now(datetime.timezone.utc)
-            
             # commit the changes to db
             self.session.add(rti_template)
             self.session.commit()

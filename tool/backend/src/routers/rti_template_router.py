@@ -32,20 +32,20 @@ async def create_rti_templates_endpoint(
     file: Annotated[UploadFile, File(description="RTI Template markdown file")],
     description: Annotated[Optional[str], Form(description="Detailed description of the RTI Template")] = None,
     service: RTITemplateService = Depends(get_rti_template_service),
-    # user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
 ):
     template_request = RTITemplateRequest(title=title, description=description, file=file)
     response = await service.create_rti_template(template_request=template_request)
     return response
 
-@router.put("/rti_template/{id}")
+@router.put("/rti_templates/{id}")
 async def update_rti_template_endpoint(
     id: Annotated[str, Path(title="ID of the RTI Template")],
     title: Annotated[Optional[str], Form(description="Title of the RTI Template")] = None,
     file: Annotated[Optional[UploadFile], File(description="RTI Template markdown file")] = None,
     description: Annotated[Optional[str], Form(description="Detailed description of the RTI Template")] = None,
     service: RTITemplateService = Depends(get_rti_template_service),
-    # user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
 ):
     template_request = RTITemplateRequest(id=id, title=title, description=description, file=file)
     response = await service.update_rti_template(template_request=template_request)

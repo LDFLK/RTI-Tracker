@@ -126,6 +126,7 @@ class GithubFileService:
 
         except GithubException as e:
             logger.error(f"[FILE SERVICE] Error updating file to github: {e}")
+            raise InternalServerException("[FILE SERVICE] Failed to update file to github") from e
     
     # delete file
     async def delete_file(self, file_path: str) -> bool:
