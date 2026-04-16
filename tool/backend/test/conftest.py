@@ -5,7 +5,7 @@ from aiohttp import ClientError
 from datetime import datetime, timezone
 from sqlmodel import SQLModel, Session, create_engine
 from src.models import RTITemplate
-from src.models.response_models import RTITemplateRequest
+from src.models.request_models import RTITemplateRequest
 from src.services.github_file_service import GithubFileService
 from fastapi import UploadFile
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock

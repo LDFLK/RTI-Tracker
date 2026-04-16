@@ -1,10 +1,12 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 from src.services.github_file_service import GithubFileService
 from src.models import RTITemplate, PaginationModel
-from src.models.response_models import RTITemplateListResponse, RTITemplateResponse, RTITemplateRequest
+from src.models.response_models import RTITemplateListResponse, RTITemplateResponse
+from src.models.request_models import RTITemplateRequest
 from sqlmodel import select, func, Session
-from src.core.exceptions import InternalServerException, BadRequestException
+from src.core.exceptions import InternalServerException, BadRequestException, NotFoundException
 import logging
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -99,4 +101,56 @@ class RTITemplateService:
                 await self.file_service.delete_file(file_path=uploaded_file_path)
             logger.error(f"[RTI SERVICE] Error creating RTI template: {e}")
             raise InternalServerException(f"[RTI SERVICE] Failed to create RTI template: {e}") from e
+
+    # API
+    async def update_rti_template(
+        self,
+        *,
+        template_request: RTITemplateRequest
+    ) -> RTITemplateResponse:
+        # fetch the record from the table
+        try:
+            target_id = UUID(template_request.id) if isinstance(template_request.id, str) else template_request.id
+        except ValueError:
+            raise BadRequestException(f"Invalid UUID format: {template_request.id}")
+
+        rti_template = self.session.get(RTITemplate, target_id)
+
+        if not rti_template:
+            raise NotFoundException(f"RTI Template with id {template_request.id} not found.")
+
+        try:
+            # update the file if provided
+            if template_request.file:
+                response = await self.file_service.update_file(rti_template.id, template_request.file)
+                
+                relative_path = response.get("relative_path", "")
+                if not relative_path:
+                    raise InternalServerException("[RTI SERVICE] Invalid path response from file service")
+
+                rti_template.file = relative_path
+
+            if template_request.title:
+                rti_template.title = template_request.title
+            
+            if template_request.description:
+                rti_template.description = template_request.description
+
+            # add the last update timestamp
+            rti_template.updated_at = datetime.datetime.now(datetime.timezone.utc)
+            
+            # commit the changes to db
+            self.session.add(rti_template)
+            self.session.commit()
+            self.session.refresh(rti_template)
+
+            return RTITemplateResponse.model_validate(rti_template)
+
+        except (InternalServerException, BadRequestException, NotFoundException):
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[RTI SERVICE] Error updating RTI template: {e}")
+            raise InternalServerException(f"[RTI SERVICE] Failed to update RTI template: {e}") from e
+            
 
