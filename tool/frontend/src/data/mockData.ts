@@ -1,4 +1,6 @@
 import { Template } from '../types/rti';
+import { Institution, Position, Receiver } from '../types/db';
+
 
 export const mockTemplates: Template[] = [
   {
@@ -35,4 +37,93 @@ export const mockTemplates: Template[] = [
   { id: 'new13', title: 'Mining Lease Agreements', description: 'Active mining permissions list', file: '', content: '# Mining Leases\n{{date}}', createdAt: new Date(), updatedAt: new Date() },
   { id: 'new14', title: 'Telecom License Renewals', description: 'Inquiry on fiber optic rollout', file: '', content: '# Telecom Inquiry\n{{date}}', createdAt: new Date(), updatedAt: new Date() },
   { id: 'new15', title: 'Police Department Vacancies', description: 'Open positions in city police', file: '', content: '# Vacancy Status\n{{date}}', createdAt: new Date(), updatedAt: new Date() }
+];
+
+export const mockInstitutions: Institution[] = [
+  { id: 'inst-1', name: 'Ministry of Finance', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'inst-2', name: 'Ministry of Defense', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'inst-3', name: 'Department of Revenue', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'inst-4', name: 'Municipal Corporation', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'inst-5', name: 'State Electricity Board', createdAt: new Date(), updatedAt: new Date() },
+];
+
+export const mockPositions: Position[] = [
+  { id: 'pos-1', name: 'Public Information Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'pos-2', name: 'Appellate Authority', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'pos-3', name: 'Nodal Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'pos-4', name: 'Chief Financial Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'pos-5', name: 'Executive Engineer', createdAt: new Date(), updatedAt: new Date() },
+];
+
+export const mockReceivers: Receiver[] = [
+  {
+    id: 'rec-1',
+    institutionId: 'inst-1',
+    positionId: 'pos-1',
+    email: 'pio.finance@gov.in',
+    contactNo: '011-23095228',
+    address: 'North Block, New Delhi',
+    institutionName: 'Ministry of Finance',
+    positionName: 'Public Information Officer',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'rec-2',
+    institutionId: 'inst-2',
+    positionId: 'pos-2',
+    email: 'aa.defense@gov.in',
+    contactNo: '011-23012284',
+    address: 'South Block, New Delhi',
+    institutionName: 'Ministry of Defense',
+    positionName: 'Appellate Authority',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'rec-3',
+    institutionId: 'inst-3',
+    positionId: 'pos-3',
+    email: 'nodal.revenue@nic.in',
+    contactNo: '011-23092653',
+    address: 'Revenue Department, Gate No. 4, New Delhi',
+    institutionName: 'Department of Revenue',
+    positionName: 'Nodal Officer',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'rec-4',
+    institutionId: 'inst-4',
+    positionId: 'pos-4',
+    email: 'cfo.municipal@city.gov',
+    contactNo: '022-26533333',
+    address: 'Municipal Head Office, Mumbai',
+    institutionName: 'Municipal Corporation',
+    positionName: 'Chief Financial Officer',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'rec-5',
+    institutionId: 'inst-5',
+    positionId: 'pos-5',
+    email: 'ee.electricity@state.in',
+    contactNo: '044-28521111',
+    address: 'Electricity Board HQ, Chennai',
+    institutionName: 'State Electricity Board',
+    positionName: 'Executive Engineer',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  { id: 'rec-6', institutionId: 'inst-1', positionId: 'pos-2', email: 'fin6@gov.in', contactNo: '1006', address: 'Delhi', institutionName: 'Ministry of Finance', positionName: 'Appellate Authority', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-7', institutionId: 'inst-2', positionId: 'pos-1', email: 'def7@gov.in', contactNo: '1007', address: 'Delhi', institutionName: 'Ministry of Defense', positionName: 'Public Information Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-8', institutionId: 'inst-3', positionId: 'pos-4', email: 'rev8@gov.in', contactNo: '1008', address: 'Delhi', institutionName: 'Department of Revenue', positionName: 'Chief Financial Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-9', institutionId: 'inst-4', positionId: 'pos-3', email: 'mun9@gov.in', contactNo: '1009', address: 'Mumbai', institutionName: 'Municipal Corporation', positionName: 'Nodal Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-10', institutionId: 'inst-5', positionId: 'pos-2', email: 'ele10@gov.in', contactNo: '1010', address: 'Chennai', institutionName: 'State Electricity Board', positionName: 'Appellate Authority', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-11', institutionId: 'inst-1', positionId: 'pos-3', email: 'fin11@gov.in', contactNo: '1011', address: 'Delhi', institutionName: 'Ministry of Finance', positionName: 'Nodal Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-12', institutionId: 'inst-2', positionId: 'pos-4', email: 'def12@gov.in', contactNo: '1012', address: 'Delhi', institutionName: 'Ministry of Defense', positionName: 'Chief Financial Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-13', institutionId: 'inst-3', positionId: 'pos-5', email: 'rev13@gov.in', contactNo: '1013', address: 'Delhi', institutionName: 'Department of Revenue', positionName: 'Executive Engineer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-14', institutionId: 'inst-4', positionId: 'pos-1', email: 'mun14@gov.in', contactNo: '1014', address: 'Mumbai', institutionName: 'Municipal Corporation', positionName: 'Public Information Officer', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'rec-15', institutionId: 'inst-5', positionId: 'pos-1', email: 'ele15@gov.in', contactNo: '1015', address: 'Chennai', institutionName: 'State Electricity Board', positionName: 'Public Information Officer', createdAt: new Date(), updatedAt: new Date() },
 ];
