@@ -1,3 +1,4 @@
+from typing import Dict
 from uuid import UUID, uuid4
 from src.services.github_file_service import GithubFileService
 from src.models import RTITemplate, PaginationModel
@@ -119,9 +120,13 @@ class RTITemplateService:
         if not rti_template:
             raise NotFoundException(f"RTI Template with id {template_request.id} not found.")
 
+        old_file_data: Dict | None = None
         try:
             # update the file if provided
             if template_request.file:
+                # fetch old content for compensating transaction
+                old_file_data = await self.file_service.get_file(rti_template.id)
+
                 response = await self.file_service.update_file(rti_template.id, template_request.file)
                 
                 relative_path = response.get("relative_path", "")
@@ -147,6 +152,16 @@ class RTITemplateService:
             raise
         except Exception as e:
             self.session.rollback()
+
+            # rollback the file update if it was successful but DB commit failed
+            if old_file_data:
+                current_file_data = await self.file_service.get_file(rti_template.id)
+                await self.file_service.restore_file(
+                    template_id=rti_template.id,
+                    content=old_file_data["content"],
+                    sha=current_file_data["sha"]
+                )
+
             logger.error(f"[RTI SERVICE] Error updating RTI template: {e}")
             raise InternalServerException(f"[RTI SERVICE] Failed to update RTI template: {e}") from e
             

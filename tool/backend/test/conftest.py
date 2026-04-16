@@ -116,9 +116,12 @@ def make_file_service():
         relative_path: str = "rti-templates/test-uuid.md",
         absolute_path: str = "https://github.com/org/repo/blob/main/rti-templates/test-uuid.md",
         upload_side_effect=None,
+        update_side_effect=None,
         delete_return: bool = True,
     ) -> MagicMock:
         file_service = MagicMock()
+        
+        # mock upload_file
         if upload_side_effect:
             file_service.upload_file = AsyncMock(side_effect=upload_side_effect)
         else:
@@ -126,7 +129,27 @@ def make_file_service():
                 "relative_path": relative_path,
                 "absolute_path": absolute_path,
             })
+            
+        # mock update_file
+        if update_side_effect:
+            file_service.update_file = AsyncMock(side_effect=update_side_effect)
+        else:
+            file_service.update_file = AsyncMock(return_value={
+                "relative_path": relative_path,
+                "absolute_path": absolute_path,
+            })
+
         file_service.delete_file = AsyncMock(return_value=delete_return)
+        
+        # mock get_file
+        file_service.get_file = AsyncMock(return_value={
+            "content": b"# Old Content",
+            "sha": "old-sha"
+        })
+        
+        # mock restore_file
+        file_service.restore_file = AsyncMock(return_value=True)
+
         return file_service
     return _factory
 
@@ -137,6 +160,7 @@ def make_template_request():
     def _factory(
         title: str = "Test Template",
         description: str = "A test description",
+        id: str = None
     ) -> MagicMock:
         mock_upload = AsyncMock()
         mock_upload.content_type = "text/markdown"
@@ -144,6 +168,7 @@ def make_template_request():
         mock_upload.read = AsyncMock(return_value=b"# Test")
 
         request = MagicMock(spec=RTITemplateRequest)
+        request.id = id
         request.title = title
         request.description = description
         request.file = mock_upload

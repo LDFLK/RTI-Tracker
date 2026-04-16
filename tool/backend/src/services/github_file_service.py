@@ -91,14 +91,14 @@ class GithubFileService:
             content = await file.read()
             file_path = f"rti-templates/{template_id}.md"
 
-            existing_file = self.repository.get_contents(file_path, ref=self.branch)
+            existing_file = await self.get_file(template_id)
 
             # update the existing file
             response = self.repository.update_file(
                 path=file_path,
                 message=f"Update content of {file.filename}",
                 content=content,
-                sha=existing_file.sha,
+                sha=existing_file["sha"],
                 branch=self.branch
             )
             
@@ -143,5 +143,37 @@ class GithubFileService:
             return True
         except GithubException as e:
             logger.error(f"[FILE SERVICE] Compensating transaction failed — could not delete {file_path}: {e}")
+            return False
+
+    # get file
+    async def get_file(self, template_id: uuid.UUID) -> Dict:
+        """Fetches the content and SHA of a file from GitHub."""
+        try:
+            file_path = f"rti-templates/{template_id}.md"
+            contents = self.repository.get_contents(file_path, ref=self.branch)
+            return {
+                "content": contents.decoded_content,
+                "sha": contents.sha
+            }
+        except GithubException as e:
+            logger.error(f"[FILE SERVICE] Error fetching file from github: {e}")
+            raise InternalServerException("[FILE SERVICE] Failed to fetch file from github") from e
+
+    # restore file
+    async def restore_file(self, template_id: uuid.UUID, content: bytes, sha: str) -> bool:
+        """Restores a file to a previous state. Used as a compensating transaction."""
+        try:
+            file_path = f"rti-templates/{template_id}.md"
+            self.repository.update_file(
+                path=file_path,
+                message=f"Rollback: restore previous version of {template_id}.md",
+                content=content,
+                sha=sha,
+                branch=self.branch
+            )
+            logger.info(f"[FILE SERVICE] Compensating transaction: restored {file_path} on github")
+            return True
+        except GithubException as e:
+            logger.error(f"[FILE SERVICE] Compensating transaction failed — could not restore {template_id}.md: {e}")
             return False
 

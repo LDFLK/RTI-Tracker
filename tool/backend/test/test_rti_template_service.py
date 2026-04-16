@@ -2,11 +2,11 @@
 import uuid
 import pytest
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from sqlalchemy.exc import OperationalError
 from src.services.rti_template_service import RTITemplateService
 from src.models.response_models import RTITemplateResponse
-from src.core.exceptions import InternalServerException
+from src.core.exceptions import InternalServerException, BadRequestException, NotFoundException
 from sqlmodel import SQLModel, Session, create_engine, select
 from src.models import RTITemplate
 
@@ -210,4 +210,127 @@ async def test_create_rti_template_rolls_back_session_on_failure(in_memory_db, m
         await service.create_rti_template(template_request=make_template_request())
 
     rollback_mock.assert_called_once()
+    
+
+# update_rti_template tests
+@pytest.mark.asyncio
+async def test_update_rti_template_success(in_memory_db, make_file_service, make_template_request):
+    """Happy path: template title and description are updated."""
+    # 1. pick an existing template ID from the in_memory_db fixture
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    template_id = str(existing_template.id)
+
+    fs = make_file_service()
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+
+    # 2. create a request with new title/desc but NO file
+    request = make_template_request(id=template_id, title="Updated Title", description="Updated Desc")
+    request.file = None
+
+    result = await service.update_rti_template(template_request=request)
+
+    assert result.id == existing_template.id
+    assert result.title == "Updated Title"
+    assert result.description == "Updated Desc"
+    fs.update_file.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_update_rti_template_with_file(in_memory_db, make_file_service, make_template_request):
+    """Updating a template with a new file calls the file service's update_file."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    template_id = str(existing_template.id)
+    new_relative_path = "rti-templates/new-path.md"
+
+    fs = make_file_service(relative_path=new_relative_path)
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+
+    request = make_template_request(id=template_id, title="New Title With File")
+    
+    result = await service.update_rti_template(template_request=request)
+
+    assert result.title == "New Title With File"
+    assert result.file == new_relative_path
+    fs.update_file.assert_called_once()
+    
+@pytest.mark.asyncio
+async def test_update_rti_template_not_found(in_memory_db, make_file_service, make_template_request):
+    """NotFoundException is raised if the template ID doesn't exist in DB."""
+    service = RTITemplateService(session=in_memory_db, file_service=make_file_service())
+    request = make_template_request(id=str(uuid.uuid4()))
+
+    with pytest.raises(NotFoundException):
+        await service.update_rti_template(template_request=request)
+
+@pytest.mark.asyncio
+async def test_update_rti_template_invalid_uuid(in_memory_db, make_file_service, make_template_request):
+    """BadRequestException is raised if the ID is not a valid UUID string."""
+    service = RTITemplateService(session=in_memory_db, file_service=make_file_service())
+    request = make_template_request(id="invalid-uuid")
+
+    with pytest.raises(BadRequestException):
+        await service.update_rti_template(template_request=request)
+
+@pytest.mark.asyncio
+async def test_update_rti_template_raises_when_file_service_fails(in_memory_db, make_file_service, make_template_request):
+    """InternalServerException propagates when file service update fails."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    fs = make_file_service(update_side_effect=InternalServerException("File update failed"))
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+    request = make_template_request(id=str(existing_template.id))
+
+    with pytest.raises(InternalServerException):
+        await service.update_rti_template(template_request=request)
+
+@pytest.mark.asyncio
+async def test_update_rti_template_rolls_back_on_db_failure(in_memory_db, monkeypatch, make_file_service, make_template_request):
+    """session.rollback() is called if the DB commit fails during update."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    service = RTITemplateService(session=in_memory_db, file_service=make_file_service())
+    
+    rollback_mock = MagicMock()
+    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=Exception("DB fail during update")))
+    monkeypatch.setattr(in_memory_db, "rollback", rollback_mock)
+
+    request = make_template_request(id=str(existing_template.id), title="Should Rollback")
+    
+    with pytest.raises(InternalServerException):
+        await service.update_rti_template(template_request=request)
+
+    rollback_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_rti_template_rolls_back_file_on_db_failure(in_memory_db, monkeypatch, make_file_service, make_template_request):
+    """restore_file is called as a compensating transaction when DB commit fails during update."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    template_id = str(existing_template.id)
+    
+    # Mock file data for restoration
+    old_content = b"# Old Content"
+    old_sha = "old-sha"
+    new_sha = "new-sha"
+    
+    fs = make_file_service()
+    # Mock get_file to return different SHAs on successive calls
+    fs.get_file = AsyncMock(side_effect=[
+        {"content": old_content, "sha": old_sha}, # first call (old)
+        {"content": b"# New Content", "sha": new_sha} # second call (new)
+    ])
+    
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+    
+    # Mock DB failure
+    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=Exception("DB failure")))
+    
+    request = make_template_request(id=template_id, title="Fail Me")
+    
+    with pytest.raises(InternalServerException):
+        await service.update_rti_template(template_request=request)
+    
+    # Verify restore_file was called with the OLD content and the NEW sha
+    fs.restore_file.assert_called_once_with(
+        template_id=existing_template.id,
+        content=old_content,
+        sha=new_sha
+    )
     
