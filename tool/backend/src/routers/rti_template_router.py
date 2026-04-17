@@ -1,8 +1,10 @@
+from fastapi import Path
 from fastapi import APIRouter, Depends, Query, Form, UploadFile, File
 from typing import Annotated, Optional
 from src.services import RTITemplateService, GithubFileService
 from src.repositories.db import SessionDep
-from src.models.response_models import RTITemplateListResponse, RTITemplateResponse, RTITemplateRequest
+from src.models.response_models import RTITemplateListResponse, RTITemplateResponse
+from src.models.request_models import RTITemplateRequest
 from src.models import User, UserRole
 from src.dependencies import RoleChecker
 
@@ -34,6 +36,19 @@ async def create_rti_templates_endpoint(
 ):
     template_request = RTITemplateRequest(title=title, description=description, file=file)
     response = await service.create_rti_template(template_request=template_request)
+    return response
+
+@router.put("/rti_templates/{id}")
+async def update_rti_template_endpoint(
+    id: Annotated[str, Path(title="ID of the RTI Template")],
+    title: Annotated[Optional[str], Form(description="Title of the RTI Template")] = None,
+    file: Annotated[Optional[UploadFile], File(description="RTI Template markdown file")] = None,
+    description: Annotated[Optional[str], Form(description="Detailed description of the RTI Template")] = None,
+    service: RTITemplateService = Depends(get_rti_template_service),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+):
+    template_request = RTITemplateRequest(id=id, title=title, description=description, file=file)
+    response = await service.update_rti_template(template_request=template_request)
     return response
 
 
