@@ -34,6 +34,12 @@ paths:
   /positions/{id}:
     $ref: "./paths/positions.yaml#/~1positions~1{id}"
 
+  # receivers paths
+  /receivers:
+    $ref: "./paths/receivers.yaml#/~1receivers"
+  /receivers/{id}:
+    $ref: "./paths/receivers.yaml#/~1receivers~1{id}"
+
 components:
   securitySchemes:
     opaqueBearerToken:
