@@ -1,6 +1,6 @@
 import logging
 from src.utils.http_client import http_client
-from src.routers import rti_template_router
+from src.routers import rti_template_router, institution_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -45,6 +45,8 @@ def health_check():
     return {"status": "Healthy Service"}
 
 app.include_router(rti_template_router)
+app.include_router(institution_router)
+
 app.add_exception_handler(BaseAPIException, api_exception_handler)
 
 
