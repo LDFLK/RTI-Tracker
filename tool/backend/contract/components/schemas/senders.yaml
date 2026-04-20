@@ -67,7 +67,7 @@ SenderRequest:
       type: string
       example: "0771234567"
       description: Contact number of the sender.
-  oneOf:
+  anyOf:
     - required: [email]
     - required: [contactNo]
 
