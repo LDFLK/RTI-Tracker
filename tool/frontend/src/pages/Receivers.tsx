@@ -7,6 +7,8 @@ import { SearchableSelect } from '../components/SearchableSelect';
 import { DataTable } from '../components/DataTable';
 import { TabButton } from '../components/TabButton';
 import { receiversService } from '../services/receiversService';
+import { institutionService } from '../services/institutionService';
+import { positionService } from '../services/positionService';
 import { Institution, Position, Receiver } from '../types/db';
 import { useEntityData } from '../hooks/useEntityData';
 import { Column } from '../types/table';
@@ -18,8 +20,8 @@ export function Receivers() {
 
   // Entities Hook Instances
   const receiversHook = useEntityData(receiversService.listReceivers, receiversService.removeReceiver, 'Receiver');
-  const institutionsHook = useEntityData(receiversService.listInstitutions, receiversService.removeInstitution, 'Institution');
-  const positionsHook = useEntityData(receiversService.listPositions, receiversService.removePosition, 'Position');
+  const institutionsHook = useEntityData(institutionService.listInstitutions, institutionService.removeInstitution, 'Institution');
+  const positionsHook = useEntityData(positionService.listPositions, positionService.removePosition, 'Position');
 
   // Deletion state
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: TabKey } | null>(null);
@@ -127,10 +129,10 @@ export function Receivers() {
     try {
       let res: any;
       if (type === 'institution') {
-        res = edit ? await receiversService.updateInstitution(edit.id, { name: trimmed }) : await receiversService.createInstitution({ name: trimmed });
+        res = edit ? await institutionService.updateInstitution(edit.id, { name: trimmed }) : await institutionService.createInstitution({ name: trimmed });
         await institutionsHook.onPageChange(institutionsHook.pagination.page);
       } else {
-        res = edit ? await receiversService.updatePosition(edit.id, { name: trimmed }) : await receiversService.createPosition({ name: trimmed });
+        res = edit ? await positionService.updatePosition(edit.id, { name: trimmed }) : await positionService.createPosition({ name: trimmed });
         await positionsHook.onPageChange(positionsHook.pagination.page);
       }
 
