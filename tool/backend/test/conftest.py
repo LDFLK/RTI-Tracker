@@ -2,7 +2,7 @@
 import pytest
 import uuid
 from aiohttp import ClientError
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlmodel import SQLModel, Session, create_engine
 from src.models import RTITemplate, Institution
 from src.models.response_models import RTITemplateRequest
@@ -161,14 +161,14 @@ def institution_db():
         Institution(
             id=uuid.uuid4(),
             name="Institution 1",
-            created_at=now,
-            updated_at=now,
+            created_at=now - timedelta(hours=2),
+            updated_at=now - timedelta(hours=2),
         ),
         Institution(
             id=uuid.uuid4(),
             name="Institution 2",
-            created_at=now,
-            updated_at=now,
+            created_at=now - timedelta(hours=1),
+            updated_at=now - timedelta(hours=1),
         ),
         Institution(
             id=uuid.uuid4(),

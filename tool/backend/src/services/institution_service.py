@@ -26,7 +26,7 @@ class InstitutionService:
             offset = (page - 1) * page_size
 
             # fetch the records from the table
-            statement_records = select(Institution).offset(offset).limit(page_size)
+            statement_records = select(Institution).order_by(Institution.created_at.desc()).offset(offset).limit(page_size)
             results = self.session.exec(statement_records).all()
             
             # fetch the total record count

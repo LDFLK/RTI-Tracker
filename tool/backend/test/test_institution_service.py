@@ -17,6 +17,11 @@ def test_get_institutions_default(institution_db):
     assert response.pagination.totalItem == 3
     assert response.pagination.totalPages == 1
     assert len(response.data) == 3
+    # verify sorting order (descending by created_at)
+    # Institution 3 (now) should be first, Institution 1 (now - 2h) should be last
+    assert response.data[0].name == "Institution 3"
+    assert response.data[1].name == "Institution 2"
+    assert response.data[2].name == "Institution 1"
 
 def test_get_institutions_custom_pagination(institution_db):
     """Test fetching institutions with custom page and page size."""
