@@ -16,7 +16,7 @@ class SenderService:
     
     # API
     # create sender
-    async def create_sender(
+    def create_sender(
         self,
         *,
         template_request: SenderRequest
