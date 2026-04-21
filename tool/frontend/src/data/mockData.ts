@@ -1,5 +1,5 @@
 import { Template } from '../types/rti';
-import { Institution, Position, Receiver, Sender } from '../types/db';
+import { Institution, Position, Receiver } from '../types/db';
 
 
 export const mockTemplates: Template[] = [
@@ -128,7 +128,12 @@ export const mockReceivers: Receiver[] = [
   { id: 'rec-15', institutionId: 'inst-5', positionId: 'pos-1', email: 'ele15@gov.in', contactNo: '1015', address: 'Chennai', institutionName: 'State Electricity Board', positionName: 'Public Information Officer', createdAt: new Date(), updatedAt: new Date() },
 ];
 
-export const mockSenders: Sender[] = [
-  { id: 's1', name: 'John Doe', email: 'john@example.com', address: '123 Main St, Colombo', contactNo: '077-1234567' },
-  { id: 's2', name: 'Jane Smith', email: 'jane@example.com', address: '456 Oak Rd, Kandy', contactNo: '071-7654321' }
+export const mockSenders: any[] = [
+  {
+    id: 'ldf',
+    name: 'Lanka Data Foundation',
+    email: 'contact@lankadata.org',
+    address: 'No. 123, Galle Road, Colombo 03, Sri Lanka',
+    contactNo: '+94 11 234 5678'
+  }
 ];

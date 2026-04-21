@@ -1,18 +1,32 @@
-import { useState, Fragment, useRef, useMemo } from 'react';
+import { useState, Fragment, useRef, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { mockTemplates } from '../data/mockData';
-import { db } from '../services/mockState';
+import { receiversService } from '../services/receiversService';
 import { FileText, ArrowRight, Save, Send, ChevronLeft, User } from 'lucide-react';
 import { SmartEditor, SmartEditorRef } from '../components/SmartEditor';
 import { FieldError } from '../components/FieldError';
+import { Receiver } from '../types/db';
+import { mockSenders } from '../data/mockData';
 
 export function CreateRTI() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const editorRef = useRef<SmartEditorRef>(null);
+
+  const [senders, setSenders] = useState<any[]>([]);
+  const [receivers, setReceivers] = useState<Receiver[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const rResult = await receiversService.listReceivers(1, 100);
+      setReceivers(rResult.data);
+      setSenders(mockSenders);
+    };
+    fetchData();
+  }, []);
 
   const [showErrors, setShowErrors] = useState(false);
   const [selectionMode, setSelectionMode] = useState<'none' | 'template'>('none');
@@ -47,8 +61,8 @@ export function CreateRTI() {
   };
 
   const placeholders = useMemo(() => {
-    const sender = db.senders.find(s => s.id === formData.senderId);
-    const receiver = db.receivers.find(r => r.id === formData.receiverId);
+    const sender = senders.find(s => s.id === formData.senderId);
+    const receiver = receivers.find(r => r.id === formData.receiverId);
 
     return {
       '{{date}}': formData.requestDate,
@@ -62,7 +76,7 @@ export function CreateRTI() {
       '{{receiver_address}}': receiver?.address || 'Receiver Address',
       '{{receiver_contact_no}}': receiver?.contactNo || 'Receiver Contact No',
     };
-  }, [formData.senderId, formData.receiverId, formData.requestDate]);
+  }, [formData.senderId, formData.receiverId, formData.requestDate, senders, receivers]);
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center mb-8">
@@ -243,7 +257,7 @@ export function CreateRTI() {
                     </label>
                     <SearchableSelect
                       placeholder="Search for a sender..."
-                      options={db.senders.map((s) => ({
+                      options={senders.map((s) => ({
                         id: s.id,
                         name: s.name
                       }))}
@@ -259,7 +273,7 @@ export function CreateRTI() {
                     </label>
                     <SearchableSelect
                       placeholder="Search by institution or position..."
-                      options={db.receivers.map((r) => ({
+                      options={receivers.map((r) => ({
                         id: r.id,
                         name: `${r.institutionName} - ${r.positionName}`
                       }))}
