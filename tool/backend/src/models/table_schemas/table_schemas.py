@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, func
 
 class RTITemplate(SQLModel, table=True):
     __tablename__ = "rti_templates"
@@ -27,3 +27,15 @@ class Institution(SQLModel, table=True):
         description="ISO 8601 timestamp of when the institution was last updated"
     )
     
+class Position(SQLModel, table=True):
+    __tablename__ = "positions"
+
+    # table fields
+    id: UUID = Field(primary_key=True, description="Unique identifier for the position")
+    name: str = Field(index=True, unique=True, description="Name of the position")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="ISO 8601 timestamp of when the position was created")
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
+        description="ISO 8601 timestamp of when the position was last updated"
+    )

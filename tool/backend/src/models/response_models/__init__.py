@@ -1,5 +1,6 @@
 from .rti_templates import RTITemplateResponse, RTITemplateListResponse, RTITemplateRequest
 from .institutions import InstitutionListResponse, InstitutionResponse
+from .positions import PositionListResponse, PositionResponse
 
 __all__ = [
     "RTITemplateResponse",
@@ -7,5 +8,7 @@ __all__ = [
     "RTITemplateRequest",
     "InstitutionListResponse",
     "InstitutionResponse"
+    "PositionListResponse",
+    "PositionResponse"
 ]
 

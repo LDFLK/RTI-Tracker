@@ -1,6 +1,7 @@
-from .table_schemas import RTITemplate, Institution
+from .table_schemas import RTITemplate, Institution, Position
 
 __all__ = [
     "RTITemplate",
-    "Institution"
+    "Institution",
+    "Position"
 ]
