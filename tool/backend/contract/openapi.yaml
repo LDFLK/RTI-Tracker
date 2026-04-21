@@ -45,6 +45,12 @@ paths:
     $ref: "./paths/rti-requests.yaml#/~1rti-requests"
   /rti-requests/{id}:
     $ref: "./paths/rti-requests.yaml#/~1rti-requests~1{id}"
+    
+  # receivers paths
+  /receivers:
+    $ref: "./paths/receivers.yaml#/~1receivers"
+  /receivers/{id}:
+    $ref: "./paths/receivers.yaml#/~1receivers~1{id}"
 
 components:
   securitySchemes:

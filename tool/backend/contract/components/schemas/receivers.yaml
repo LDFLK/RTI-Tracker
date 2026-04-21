@@ -1,0 +1,102 @@
+ReceiverRequest:
+  type: object
+  required:
+    - position_id
+    - institution_id
+  properties:
+    position_id:
+      type: string
+      format: uuid
+      example: be7aa68e-c842-45cd-aab6-f576895b922f
+      description: Position ID in UUID format
+    institution_id:
+      type: string
+      format: uuid
+      example: be7aa68e-c842-45cd-aab6-f576895b922e
+      description: Institution ID in UUID format
+    email:
+      type: string
+      format: email
+      example: contact@institution.com
+      description: Official email address of the receiver
+    address:
+      type: string
+      example: No:15/A, Colombo 12
+      description: Human readable physical address of the receiver
+    contactNo:
+      type: string
+      example: "0781231231"
+      description: Mobile contact number of the receiver
+  anyOf:
+    - required: [ email ]
+    - required: [ contactNo ]
+
+ReceiverResponse:
+  type: object
+  required:
+    - id
+    - position_id
+    - institution_id
+    - email
+    - address
+    - contactNo
+    - createdAt
+    - updatedAt
+  properties:
+    id:
+      type: string
+      format: uuid
+      readOnly: true
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      description: Unique identifier of the receiver.
+    position_id:
+      type: string
+      format: uuid
+      readOnly: true
+      example: be7aa68e-c842-45cd-aab6-f576895b922d
+      description: Unique identifier of the position
+    institution_id:
+      type: string
+      format: uuid
+      readOnly: true
+      example: be7aa68e-c842-45cd-aab6-f576895b922e
+      description: Unique identifier of the institution
+    email:
+      type: string
+      format: email
+      readOnly: true
+      example: contact@institution.com
+      description: Official email address of the receiver
+    address:
+      type: string
+      readOnly: true
+      example: No:15/A, Colombo 12
+      description: Human readable physical address of the receiver
+    contactNo:
+      type: string
+      readOnly: true
+      example: "0781231231"
+      description: Mobile contact number of the receiver
+    createdAt:
+      type: string
+      format: date-time
+      readOnly: true
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the receiver was created (UTC).
+    updatedAt:
+      type: string
+      format: date-time
+      readOnly: true
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the receiver was last updated (UTC).
+
+ReceiverListResponse:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/ReceiverResponse"
+      description: List of receivers for the current page.
+    pagination:
+      $ref: "common.yaml#/Pagination"

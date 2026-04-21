@@ -2,9 +2,9 @@
 import pytest
 import uuid
 from aiohttp import ClientError
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlmodel import SQLModel, Session, create_engine
-from src.models import RTITemplate
+from src.models import RTITemplate, Institution, Position
 from src.models.response_models import RTITemplateRequest
 from src.services.github_file_service import GithubFileService
 from fastapi import UploadFile
@@ -149,4 +149,75 @@ def make_template_request():
         request.file = mock_upload
         return request
     return _factory
+
+@pytest.fixture
+def institution_db():
+    """Create an in-memory SQLite DB and provide a fresh session with test institutions."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    now = datetime.now(timezone.utc)
+    
+    institutions = [
+        Institution(
+            id=uuid.uuid4(),
+            name="Institution 1",
+            created_at=now - timedelta(hours=2),
+            updated_at=now - timedelta(hours=2),
+        ),
+        Institution(
+            id=uuid.uuid4(),
+            name="Institution 2",
+            created_at=now - timedelta(hours=1),
+            updated_at=now - timedelta(hours=1),
+        ),
+        Institution(
+            id=uuid.uuid4(),
+            name="Institution 3",
+            created_at=now,
+            updated_at=now,
+        ),
+    ]
+    
+    with Session(engine) as session:
+        session.add_all(institutions)
+        session.commit()
+        # We need to refresh objects if we want to use them after commit, 
+        # but for tests we often just want the session.
+        yield session
+
+@pytest.fixture
+def position_db():
+    """Create an in-memory SQLite DB and provide a fresh session with test positions."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    now = datetime.now(timezone.utc)
+    
+    positions = [
+        Position(
+            id=uuid.uuid4(),
+            name="Position 1",
+            created_at=now - timedelta(hours=2),
+            updated_at=now - timedelta(hours=2),
+        ),
+        Position(
+            id=uuid.uuid4(),
+            name="Position 2",
+            created_at=now - timedelta(hours=1),
+            updated_at=now - timedelta(hours=1),
+        ),
+        Position(
+            id=uuid.uuid4(),
+            name="Position 3",
+            created_at=now,
+            updated_at=now,
+        ),
+    ]
+    
+    with Session(engine) as session:
+        session.add_all(positions)
+        session.commit()
+        # We need to refresh objects if we want to use them after commit, 
+        # but for tests we often just want the session.
+        yield session
+
     

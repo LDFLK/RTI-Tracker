@@ -1,0 +1,186 @@
+/receivers:
+  # Create a new receiver
+  post:
+    summary: Create a receiver
+    operationId: createReceiver
+    description: Create a new receiver.
+    tags:
+      - Receiver
+    security:
+      - opaqueBearerToken: []
+    requestBody:
+      required: true
+      description: JSON request body with receiver metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/receivers.yaml#/ReceiverRequest"
+
+    responses:
+      "201":
+        description: Receiver created successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/receivers.yaml#/ReceiverResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              position_id: be7aa68e-c842-45cd-aab6-f576895b922d
+              institution_id: be7aa68e-c842-45cd-aab6-f576895b922e
+              email: contact@institution.com
+              address: "No:15/A, Colombo 12"
+              contactNo: "0781231231"
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "400":
+        $ref: "../components/responses/Errors.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # List all receivers
+  get:
+    summary: List all receivers
+    operationId: listReceivers
+    description: Returns a paginated list of all receivers.
+    tags:
+      - Receiver
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/Pagination.yaml#/PageParam"
+      - $ref: "../components/parameters/Pagination.yaml#/PageSizeParam"
+    responses:
+      "200":
+        description: A paginated list of receivers.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/receivers.yaml#/ReceiverListResponse"
+            example:
+              data:
+                - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  position_id: be7aa68e-c842-45cd-aab6-f576895b922d
+                  institution_id: be7aa68e-c842-45cd-aab6-f576895b922e
+                  email: contact@institution.com
+                  address: "No:15/A, Colombo 12"
+                  contactNo: "0781231231"
+                  createdAt: "2026-03-31T09:00:00Z"
+                  updatedAt: "2026-03-31T09:00:00Z"
+              pagination:
+                page: 1
+                pageSize: 20
+                totalItems: 84
+                totalPages: 5
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+/receivers/{id}:
+  # Get a single receiver by ID
+  get:
+    summary: Get a receiver by ID
+    operationId: getReceiverById
+    description: Returns a single receiver identified by its UUID.
+    tags:
+      - Receiver
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/object.yaml#/ObjectId"
+    responses:
+      "200":
+        description: Receiver found and returned successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/receivers.yaml#/ReceiverResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              position_id: be7aa68e-c842-45cd-aab6-f576895b922d
+              institution_id: be7aa68e-c842-45cd-aab6-f576895b922e
+              email: contact@institution.com
+              address: "No:15/A, Colombo 12"
+              contactNo: "0781231231"
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # Update a single receiver by ID
+  put:
+    summary: Update a receiver
+    operationId: updateReceiver
+    description: Updates the metadata of a receiver.
+    tags:
+      - Receiver
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/object.yaml#/ObjectId"
+    requestBody:
+      required: true
+      description: JSON request body with receiver metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/receivers.yaml#/ReceiverRequest"
+    responses:
+      "200":
+        description: Receiver updated successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/receivers.yaml#/ReceiverResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              position_id: be7aa68e-c842-45cd-aab6-f576895b922d
+              institution_id: be7aa68e-c842-45cd-aab6-f576895b922e
+              email: contact@institution.com
+              address: "No:15/A, Colombo 12"
+              contactNo: "0781231231"
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "400":
+        $ref: "../components/responses/Errors.yaml#/BadRequest"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # Delete a single receiver by ID
+  delete:
+    summary: Delete a receiver
+    operationId: deleteReceiver
+    description: Permanently deletes a receiver by UUID. Returns 204 No Content on
+      success. If the resource is linked with some other resources, cannot be
+      deleted.
+    tags:
+      - Receiver
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/object.yaml#/ObjectId"
+    responses:
+      "204":
+        description: Receiver deleted successfully. No content returned.
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses/Errors.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
