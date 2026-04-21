@@ -2,7 +2,7 @@ import { useState, Fragment, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { Select } from '../components/Select';
+import { SearchableSelect } from '../components/SearchableSelect';
 import { mockTemplates } from '../data/mockData';
 import { db } from '../services/mockState';
 import { FileText, ArrowRight, Save, Send, ChevronLeft, User } from 'lucide-react';
@@ -238,27 +238,33 @@ export function CreateRTI() {
                   </div>
 
                   <div className="flex flex-col space-y-1">
-                    <Select
-                      label="Sender (Applicant)"
+                    <label className="text-sm font-medium text-gray-700">
+                      Sender (Applicant)
+                    </label>
+                    <SearchableSelect
+                      placeholder="Search for a sender..."
                       options={db.senders.map((s) => ({
-                        value: s.id,
-                        label: s.name
+                        id: s.id,
+                        name: s.name
                       }))}
                       value={formData.senderId}
-                      onChange={(e) => setFormData({ ...formData, senderId: e.target.value })}
+                      onChange={(id: string) => setFormData({ ...formData, senderId: id })}
                     />
                     {showErrors && !formData.senderId && <FieldError error="Please select a sender" />}
                   </div>
 
                   <div className="flex flex-col space-y-1">
-                    <Select
-                      label="Receiver (Institution)"
+                    <label className="text-sm font-medium text-gray-700">
+                      Receiver (Institution - Position)
+                    </label>
+                    <SearchableSelect
+                      placeholder="Search by institution or position..."
                       options={db.receivers.map((r) => ({
-                        value: r.id,
-                        label: `${r.institutionName} - ${r.positionName}`
+                        id: r.id,
+                        name: `${r.institutionName} - ${r.positionName}`
                       }))}
                       value={formData.receiverId}
-                      onChange={(e) => setFormData({ ...formData, receiverId: e.target.value })}
+                      onChange={(id: string) => setFormData({ ...formData, receiverId: id })}
                     />
                     {showErrors && !formData.receiverId && <FieldError error="Please select a receiver" />}
                   </div>
