@@ -296,3 +296,92 @@ def test_get_github_file_path_builds_correct_url():
     )
     assert url == "https://github.com/org/repo/blob/main/rti-templates/abc.md"
 
+# get_file tests
+@pytest.mark.asyncio
+async def test_get_file_success(make_github_content_file):
+    """get_file returns decoded content and SHA from the GitHub API."""
+    template_id = uuid.uuid4()
+    file_path = f"rti-templates/{template_id}.md"
+    expected_content = b"# Content"
+    expected_sha = "sha123"
+
+    contents = make_github_content_file(file_path)
+    contents.decoded_content = expected_content
+    contents.sha = expected_sha
+
+    service = _make_service(get_contents_return=contents)
+
+    result = await service.get_file(template_id=template_id)
+
+    assert result["content"] == expected_content
+    assert result["sha"] == expected_sha
+    service.repository.get_contents.assert_called_once_with(file_path, ref="main")
+
+@pytest.mark.asyncio
+async def test_get_file_raises_internal_exception_on_github_error():
+    """get_file wraps GitHub API errors in InternalServerException."""
+    service = _make_service(get_contents_side_effect=GithubException(404, "Not Found"))
+
+    with pytest.raises(InternalServerException):
+        await service.get_file(template_id=uuid.uuid4())
+
+# restore_file tests
+@pytest.mark.asyncio
+async def test_restore_file_success():
+    """restore_file returns True and calls update_file on the GitHub repository."""
+    template_id = uuid.uuid4()
+    content = b"# Restored Content"
+    sha = "old-sha"
+    file_path = f"rti-templates/{template_id}.md"
+
+    service = _make_service(update_file_return={"content": MagicMock()})
+
+    result = await service.restore_file(template_id=template_id, content=content, sha=sha)
+
+    assert result is True
+    service.repository.update_file.assert_called_once_with(
+        path=file_path,
+        message=f"Rollback: restore previous version of {template_id}.md",
+        content=content,
+        sha=sha,
+        branch="main"
+    )
+
+@pytest.mark.asyncio
+async def test_restore_file_returns_false_on_github_error():
+    """restore_file returns False when the GitHub API fails."""
+    service = _make_service(update_file_side_effect=GithubException(500, "Restore failed"))
+
+    result = await service.restore_file(template_id=uuid.uuid4(), content=b"", sha="sha")
+
+    assert result is False
+
+# recreate_file tests
+@pytest.mark.asyncio
+async def test_recreate_file_success():
+    """recreate_file returns True and calls create_file on the GitHub repository."""
+    template_id = uuid.uuid4()
+    content = b"# Recreated Content"
+    file_path = f"rti-templates/{template_id}.md"
+
+    service = _make_service(create_file_return={"content": MagicMock()})
+
+    result = await service.recreate_file(template_id=template_id, content=content)
+
+    assert result is True
+    service.repository.create_file.assert_called_once_with(
+        path=file_path,
+        message=f"Recreate file {template_id}.md",
+        content=content,
+        branch="main"
+    )
+
+@pytest.mark.asyncio
+async def test_recreate_file_returns_false_on_github_error():
+    """recreate_file returns False when the GitHub API fails."""
+    service = _make_service(create_file_side_effect=GithubException(500, "Recreate failed"))
+
+    result = await service.recreate_file(template_id=uuid.uuid4(), content=b"")
+
+    assert result is False
+

@@ -215,5 +215,3 @@ class RTITemplateService:
             raise InternalServerException(f"Failed to delete RTI template: {e}") from e
 
 
-            
-

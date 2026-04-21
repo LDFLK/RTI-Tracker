@@ -3,10 +3,10 @@ import uuid
 import pytest
 from datetime import datetime
 from unittest.mock import MagicMock, AsyncMock, patch
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, IntegrityError
 from src.services.rti_template_service import RTITemplateService
 from src.models.response_models import RTITemplateResponse
-from src.core.exceptions import InternalServerException, BadRequestException, NotFoundException
+from src.core.exceptions import InternalServerException, BadRequestException, NotFoundException, ConflictException
 from sqlmodel import SQLModel, Session, create_engine, select
 from src.models import RTITemplate
 
@@ -333,4 +333,81 @@ async def test_update_rti_template_rolls_back_file_on_db_failure(in_memory_db, m
         content=old_content,
         sha=new_sha
     )
+
+# delete_rti_template tests
+@pytest.mark.asyncio
+async def test_delete_rti_template_success(in_memory_db, make_file_service):
+    """Happy path: template and its file are deleted."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    template_id = existing_template.id
+    file_path = existing_template.file
+
+    fs = make_file_service()
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+
+    await service.delete_rti_template(template_id=str(template_id))
+
+    # Verify DB deletion
+    db_record = in_memory_db.exec(select(RTITemplate).where(RTITemplate.id == template_id)).first()
+    assert db_record is None
+    # Verify File deletion
+    fs.delete_file.assert_called_once_with(file_path=file_path)
+
+@pytest.mark.asyncio
+async def test_delete_rti_template_not_found(in_memory_db, make_file_service):
+    """NotFoundException is raised if the template ID doesn't exist."""
+    service = RTITemplateService(session=in_memory_db, file_service=make_file_service())
+    random_id = str(uuid.uuid4())
+
+    with pytest.raises(NotFoundException):
+        await service.delete_rti_template(template_id=random_id)
+
+@pytest.mark.asyncio
+async def test_delete_rti_template_invalid_uuid(in_memory_db, make_file_service):
+    """BadRequestException is raised for malformed UUID strings."""
+    service = RTITemplateService(session=in_memory_db, file_service=make_file_service())
+
+    with pytest.raises(BadRequestException):
+        await service.delete_rti_template(template_id="not-a-uuid")
+
+@pytest.mark.asyncio
+async def test_delete_rti_template_integrity_error(in_memory_db, make_file_service, monkeypatch):
+    """IntegrityError triggers rollback and recreates the file on GitHub."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    template_id = existing_template.id
+    
+    fs = make_file_service()
+    fs.get_file = AsyncMock(return_value={"content": b"Content", "sha": "sha"})
+    fs.recreate_file = AsyncMock(return_value=True)
+    
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+    
+    # Mock commit to raise IntegrityError
+    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=IntegrityError("Conflict", None, None)))
+    
+    with pytest.raises(ConflictException):
+        await service.delete_rti_template(template_id=str(template_id))
+    
+    # Verify compensating transaction
+    fs.recreate_file.assert_called_once_with(template_id=template_id, content=b"Content")
+
+@pytest.mark.asyncio
+async def test_delete_rti_template_generic_exception(in_memory_db, make_file_service, monkeypatch):
+    """Generic exception triggers rollback and recreates the file."""
+    existing_template = in_memory_db.exec(select(RTITemplate)).first()
+    template_id = existing_template.id
+    
+    fs = make_file_service()
+    fs.get_file = AsyncMock(return_value={"content": b"Content", "sha": "sha"})
+    fs.recreate_file = AsyncMock(return_value=True)
+    
+    service = RTITemplateService(session=in_memory_db, file_service=fs)
+    
+    # Mock delete to raise Exception
+    monkeypatch.setattr(in_memory_db, "delete", MagicMock(side_effect=Exception("Unexpected error")))
+    
+    with pytest.raises(InternalServerException):
+        await service.delete_rti_template(template_id=str(template_id))
+    
+    fs.recreate_file.assert_called_once_with(template_id=template_id, content=b"Content")
     
