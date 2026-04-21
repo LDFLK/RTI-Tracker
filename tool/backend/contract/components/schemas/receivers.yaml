@@ -13,16 +13,16 @@ ReceiverRequest:
       type: string
       format: uuid
       example: be7aa68e-c842-45cd-aab6-f576895b922e
-      description: institution ID in UUID format
+      description: Institution ID in UUID format
     email:
       type: string
       format: email
       example: contact@institution.com
-      description: Official email address
+      description: Official email address of the receiver
     address:
       type: string
       example: No:15/A, Colombo 12
-      description: Human readable physical address
+      description: Human readable physical address of the receiver
     contactNo:
       type: string
       example: "0781231231"
@@ -66,12 +66,12 @@ ReceiverResponse:
       format: email
       readOnly: true
       example: contact@institution.com
-      description: Official email address
+      description: Official email address of the receiver
     address:
       type: string
       readOnly: true
       example: No:15/A, Colombo 12
-      description: Human readable physical address
+      description: Human readable physical address of the receiver
     contactNo:
       type: string
       readOnly: true

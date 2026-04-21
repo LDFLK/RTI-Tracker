@@ -1,3 +1,15 @@
+BadRequest:
+  description: Missing or invalid request.
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/common.yaml#/ErrorResponse"
+      example:
+        status: 400
+        error: Bad request
+        message: "Invalid Request"
+        timestamp: "2026-03-31T09:00:00Z"
+
 Unauthorized:
   description: Missing or invalid bearer token.
   content:

@@ -32,6 +32,8 @@
               contactNo: "0781231231"
               createdAt: "2026-03-31T09:00:00Z"
               updatedAt: "2026-03-31T09:00:00Z"
+      "400":
+        $ref: "../components/responses/Errors.yaml#/BadRequest"
       "401":
         $ref: "../components/responses/Errors.yaml#/Unauthorized"
       "422":
@@ -147,6 +149,8 @@
               contactNo: "0781231231"
               createdAt: "2026-03-31T09:00:00Z"
               updatedAt: "2026-03-31T09:00:00Z"
+      "400":
+        $ref: "../components/responses/Errors.yaml#/BadRequest"
       "401":
         $ref: "../components/responses/Errors.yaml#/Unauthorized"
       "404":
