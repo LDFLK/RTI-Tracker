@@ -12,6 +12,15 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from src.services.auth_service import AuthService
 from src.utils import http_client
 
+from src.models.response_models import SenderResponse
+from src.models.request_models import SenderRequest
+from src.services import SenderService
+
+
+FIXED_UUID = uuid.UUID("123e4567-e89b-12d3-a456-426614174000")
+FIXED_NOW = datetime(2026, 3, 31, 9, 0, 0, tzinfo=timezone.utc)
+
+
 # MockResponse class to simulate aiohttp responses
 class MockResponse:
     def __init__(self, json_data, status=200):
@@ -31,14 +40,18 @@ class MockResponse:
     async def __aexit__(self, exc_type, exc, tb):
         pass
 
+
 # Fixture to patch http_client.session with a fake session
 @pytest.fixture
 def patch_http_client_session():
     """Yield a mock session and patch http_client.session"""
     fake_session = MagicMock()
-    with patch.object(type(http_client), "session", new_callable=PropertyMock) as mock_session_prop:
+    with patch.object(
+        type(http_client), "session", new_callable=PropertyMock
+    ) as mock_session_prop:
         mock_session_prop.return_value = fake_session
         yield fake_session
+
 
 # fixtures for RTI Templates
 @pytest.fixture
@@ -47,7 +60,7 @@ def in_memory_db():
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
     now = datetime.now(timezone.utc)
-    
+
     templates = [
         RTITemplate(
             id=uuid.uuid4(),
@@ -74,7 +87,7 @@ def in_memory_db():
             updated_at=now,
         ),
     ]
-    
+
     with Session(engine) as session:
         session.add_all(templates)
         session.commit()
@@ -85,6 +98,7 @@ def in_memory_db():
 @pytest.fixture
 def make_upload_file():
     """Returns a factory for creating mock UploadFile instances."""
+
     def _factory(
         content: bytes = b"# Hello",
         content_type: str = "text/markdown",
@@ -95,23 +109,27 @@ def make_upload_file():
         mock_file.filename = filename
         mock_file.read = AsyncMock(return_value=content)
         return mock_file
+
     return _factory
 
 
 @pytest.fixture
 def make_github_content_file():
     """Returns a factory for GitHub ContentFile mock objects."""
+
     def _factory(path: str) -> MagicMock:
         content_file = MagicMock()
         content_file.path = path
         content_file.sha = "abc123sha"
         return content_file
+
     return _factory
 
 
 @pytest.fixture
 def make_file_service():
     """Returns a factory for mock GithubFileService instances with configurable upload/delete behaviour."""
+
     def _factory(
         relative_path: str = "rti-templates/test-uuid.md",
         absolute_path: str = "https://github.com/org/repo/blob/main/rti-templates/test-uuid.md",
@@ -122,18 +140,22 @@ def make_file_service():
         if upload_side_effect:
             file_service.upload_file = AsyncMock(side_effect=upload_side_effect)
         else:
-            file_service.upload_file = AsyncMock(return_value={
-                "relative_path": relative_path,
-                "absolute_path": absolute_path,
-            })
+            file_service.upload_file = AsyncMock(
+                return_value={
+                    "relative_path": relative_path,
+                    "absolute_path": absolute_path,
+                }
+            )
         file_service.delete_file = AsyncMock(return_value=delete_return)
         return file_service
+
     return _factory
 
 
 @pytest.fixture
 def make_template_request():
     """Returns a factory for mock RTITemplateRequest instances with a fake UploadFile."""
+
     def _factory(
         title: str = "Test Template",
         description: str = "A test description",
@@ -148,6 +170,7 @@ def make_template_request():
         request.description = description
         request.file = mock_upload
         return request
+
     return _factory
 
 @pytest.fixture
@@ -221,3 +244,51 @@ def position_db():
         yield session
 
     
+
+# ── sender fixtures ───────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def make_sender_request():
+    """Factory for SenderRequest instances."""
+
+    def _factory(
+        name: str = "John Doe",
+        email: str | None = "john@example.com",
+        address: str | None = "123 Main St, Colombo 01",
+        contact_no: str | None = None,
+    ) -> SenderRequest:
+        return SenderRequest(
+            name=name, email=email, address=address, contact_no=contact_no
+        )
+
+    return _factory
+
+
+@pytest.fixture
+def make_sender_response():
+    """Factory for SenderResponse instances."""
+
+    def _factory(
+        id: uuid.UUID = FIXED_UUID,
+        name: str = "John Doe",
+        email: str | None = "john@example.com",
+        address: str | None = "123 Main St, Colombo 01",
+        contact_no: str | None = None,
+    ) -> SenderResponse:
+        return SenderResponse(
+            id=id,
+            name=name,
+            email=email,
+            address=address,
+            contact_no=contact_no,
+            created_at=FIXED_NOW,
+            updated_at=FIXED_NOW,
+        )
+
+    return _factory
+
+
+@pytest.fixture
+def mock_sender_service():
+    return MagicMock(spec=SenderService)
