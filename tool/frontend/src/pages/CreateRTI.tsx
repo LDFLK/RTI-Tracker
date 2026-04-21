@@ -8,7 +8,7 @@ import { receiversService } from '../services/receiversService';
 import { FileText, ArrowRight, Save, Send, ChevronLeft, User } from 'lucide-react';
 import { SmartEditor, SmartEditorRef } from '../components/SmartEditor';
 import { FieldError } from '../components/FieldError';
-import { Receiver } from '../types/db';
+import { Receiver, Sender } from '../types/db';
 import { mockSenders } from '../data/mockData';
 
 export function CreateRTI() {
@@ -16,7 +16,7 @@ export function CreateRTI() {
   const [step, setStep] = useState(1);
   const editorRef = useRef<SmartEditorRef>(null);
 
-  const [senders, setSenders] = useState<any[]>([]);
+  const [senders, setSenders] = useState<Sender[]>([]);
   const [receivers, setReceivers] = useState<Receiver[]>([]);
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export function CreateRTI() {
   }, [formData.senderId, formData.receiverId, formData.requestDate, senders, receivers]);
 
   const renderStepIndicator = () => (
-    <div className="flex items-center justify-center mb-8">
+    <div className="flex items-center justify-center mb-8 mt-8">
       {[1, 2, 3].map((num) => (
         <Fragment key={num}>
           <div className="flex flex-col items-center relative">
@@ -110,10 +110,10 @@ export function CreateRTI() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+        <h1 className="text-2xl font-bold text-gray-900">
           Create New RTI Request
         </h1>
-        <p className="text-gray-600 mt-2 text-lg">
+        <p className="text-sm text-gray-600 mt-1">
           Generate an official Right to Information request in three simple steps.
         </p>
       </div>

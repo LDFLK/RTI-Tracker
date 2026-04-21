@@ -25,11 +25,12 @@ export interface Receiver {
   institutionName?: string;
   positionName?: string;
 }
-
 export interface Sender {
   id: string;
   name: string;
   email: string;
   address: string;
   contactNo: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
