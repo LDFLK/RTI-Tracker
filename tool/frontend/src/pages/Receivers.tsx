@@ -28,8 +28,13 @@ const receiverSchema = yup.object().shape({
   institutionId: yup.string().required('Institution is required'),
   positionId: yup.string().required('Position is required'),
   email: yup.string().nullable().transform(v => v === '' ? null : v)
-    .email('Please enter a valid email address'),
-  contactNo: yup.string().nullable().transform(v => v === '' ? null : v),
+    .matches(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 'Please enter a valid email address'),
+  contactNo: yup.string().nullable().transform(v => v === '' ? null : v)
+    .test('is-sl-phone', 'Please enter a valid Sri Lankan phone number', value => {
+      if (!value) return true;
+      const clean = value.replace(/-/g, '');
+      return /^(?:\+94|0)[1-9][0-9]{8}$/.test(clean);
+    }),
   address: yup.string().nullable().transform(v => v === '' ? null : v),
 }).test('contact-required', 'Either Email or Contact No is required', function (value) {
   if (!value.email && !value.contactNo) {
@@ -268,6 +273,7 @@ export function Receivers() {
                   onChange={field.onChange}
                   options={institutionsHook.data}
                   onAddSpecial={n => startRedirect('institution', n)}
+                  addLabel="Add Institution"
                 />
               )}
             />
@@ -285,6 +291,7 @@ export function Receivers() {
                   onChange={field.onChange}
                   options={positionsHook.data}
                   onAddSpecial={n => startRedirect('position', n)}
+                  addLabel="Add Position"
                 />
               )}
             />
