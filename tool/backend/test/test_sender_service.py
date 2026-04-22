@@ -3,7 +3,6 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import ValidationError
 from sqlmodel import select
-
 from src.models.response_models import SenderResponse
 from src.models.request_models import SenderRequest
 from src.core.exceptions import InternalServerException, BadRequestException
@@ -13,9 +12,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from src.core.exceptions import ConflictException
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Unit tests – SenderRequest validation
-# ─────────────────────────────────────────────────────────────────────────────
 
 def test_sender_request_valid_with_email_only():
     req = SenderRequest(name="Alice", email="alice@example.com")
@@ -81,9 +78,7 @@ def test_send_good_request():
     assert req.contact_no == "0771234567"
     assert req.address == "123 Main St, Colombo 01"
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Unit tests – SenderService.create_sender
-# ─────────────────────────────────────────────────────────────────────────────
 
 def test_create_sender_with_email_returns_response(in_memory_db, make_sender_request):
     service = SenderService(session=in_memory_db)
@@ -158,15 +153,15 @@ def test_create_sender_reraises_bad_request_exception(monkeypatch, in_memory_db,
     with pytest.raises(BadRequestException):
         service.create_sender(sender_request=make_sender_request())
 
-# ─────────────────────────────────────────────────────────────────────────────
 # IntegrityError tests – SenderService.create_sender
-# ─────────────────────────────────────────────────────────────────────────────
 
 def _make_integrity_error(constraint_name: str):
     """Build a fake IntegrityError that looks like a psycopg2 UniqueViolation."""
-    import psycopg2.errors
-    orig = MagicMock(spec=psycopg2.errors.UniqueViolation)
-    orig.diag.constraint_name = constraint_name
+    diag = MagicMock()
+    diag.constraint_name = constraint_name
+
+    orig = MagicMock()
+    orig.diag = diag
     return IntegrityError(statement=None, params=None, orig=orig)
 
 def test_create_sender_raises_conflict_on_duplicate_email(monkeypatch, in_memory_db, make_sender_request):
@@ -193,4 +188,17 @@ def test_create_sender_rolls_back_on_integrity_error(monkeypatch, in_memory_db, 
 
     with pytest.raises(ConflictException):
         service.create_sender(sender_request=make_sender_request())
+    rollback_mock.assert_called_once()
+
+def test_create_sender_integrity_error_default_fallback(monkeypatch, in_memory_db, make_sender_request):
+    service = SenderService(session=in_memory_db)
+
+    rollback_mock = MagicMock()
+    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=_make_integrity_error("unknown_constraint")))
+    monkeypatch.setattr(in_memory_db, "rollback", rollback_mock)
+
+    with pytest.raises(ConflictException) as exc:
+        service.create_sender(sender_request=make_sender_request())
+
+    assert "Duplicate values violates unique constraint" in str(exc.value)
     rollback_mock.assert_called_once()

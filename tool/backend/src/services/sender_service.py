@@ -42,19 +42,16 @@ class SenderService:
         except IntegrityError as e:
             self.session.rollback()
             # detect unique constraint
-            if isinstance(e.orig, psycopg2.errors.UniqueViolation):
-                constraint = e.orig.diag.constraint_name
+            constraint = e.orig.diag.constraint_name
 
-                if constraint == "senders_email_key":
-                    raise ConflictException("Email already exists")
+            if constraint == "senders_email_key":
+                raise ConflictException("Email already exists")
 
-                elif constraint == "senders_contact_no_key":
-                    raise ConflictException("Contact number already exists")
+            elif constraint == "senders_contact_no_key":
+                raise ConflictException("Contact number already exists")
 
-                else:
-                    raise ConflictException("Duplicate values violates unique constraint")
-
-            raise
+            else:
+                raise ConflictException("Duplicate values violates unique constraint")
         except BadRequestException:
             raise
         except Exception as e:

@@ -245,9 +245,7 @@ def position_db():
 
     
 
-# ── sender fixtures ───────────────────────────────────────────────────────────
-
-
+# sender fixtures 
 @pytest.fixture
 def make_sender_request():
     """Factory for SenderRequest instances."""
