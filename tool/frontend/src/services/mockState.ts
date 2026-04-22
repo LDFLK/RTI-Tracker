@@ -1,14 +1,42 @@
-import { mockReceivers, mockInstitutions, mockPositions } from '../data/mockData';
-import { Institution, Position, Receiver } from '../types/db';
+import { mockReceivers, mockInstitutions, mockPositions, mockSenders, mockTemplates } from '../data/mockData';
+import { Institution, Position, Receiver, RTIRequest, RTITemplateDB, RTIStatusHistory, Sender } from '../types/db';
+
+const TEMPLATE_BASE_URL = 'https://storage.rti.api/templates/';
 
 class MockDb {
   receivers: Receiver[] = [...mockReceivers];
   institutions: Institution[] = [...mockInstitutions];
   positions: Position[] = [...mockPositions];
+  senders: Sender[] = [...mockSenders];
+  rtiRequests: RTIRequest[] = [];
+  statusHistories: RTIStatusHistory[] = [];
+  
+  templates: RTITemplateDB[] = mockTemplates.map(t => ({
+    id: t.id,
+    title: t.title,
+    description: t.description,
+    file: t.file,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt
+  }));
 
-  setReceivers(val: Receiver[]) { this.receivers = val; }
-  setInstitutions(val: Institution[]) { this.institutions = val; }
-  setPositions(val: Position[]) { this.positions = val; }
+  // Mock "File Storage" for markdown content
+  templateFiles: Record<string, string> = mockTemplates.reduce((acc, t) => {
+    if (t.content) {
+      const fullLink = t.file.startsWith('http') ? t.file : `${TEMPLATE_BASE_URL}${t.file}`;
+      acc[fullLink] = t.content;
+    }
+    return acc;
+  }, {} as Record<string, string>);
+
+  setReceivers(data: Receiver[]) { this.receivers = data; }
+  setInstitutions(data: Institution[]) { this.institutions = data; }
+  setPositions(data: Position[]) { this.positions = data; }
+  setSenders(data: Sender[]) { this.senders = data; }
+  setTemplates(data: RTITemplateDB[]) { this.templates = data; }
+  setTemplateFile(link: string, content: string) { this.templateFiles[link] = content; }
+  addRTIRequest(req: RTIRequest) { this.rtiRequests = [req, ...this.rtiRequests]; }
+  addStatusHistory(history: RTIStatusHistory) { this.statusHistories = [history, ...this.statusHistories]; }
 }
 
 export const db = new MockDb();
