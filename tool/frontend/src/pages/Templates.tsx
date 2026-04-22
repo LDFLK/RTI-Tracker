@@ -65,17 +65,16 @@ export function Templates() {
       if (selectedTemplate) {
         let content = selectedTemplate.content;
 
-        // load the file content from the URL if haven't already fetched it
+        // load the file content from the service if haven't already fetched it
         if (content === undefined && selectedTemplate.file) {
           try {
-            const res = await fetch(selectedTemplate.file);
-            content = await res.text();
+            content = await templateService.getTemplateContent(selectedTemplate.file);
 
-            // Cache the downloaded text back into the templates array so we don't fetch it again
             setTemplates(prev => prev.map(t =>
               t.id === selectedTemplate.id ? { ...t, content: content } : t
             ));
-            selectedTemplate.content = content; // update local pointer instantly
+
+            setSelectedTemplate(prev => prev && prev.id === selectedTemplate.id ? { ...prev, content } : prev);
           } catch (e) {
             console.error("Failed to load file content:", e);
             content = '';
@@ -89,11 +88,13 @@ export function Templates() {
       }
     };
     loadContent();
-  }, [selectedTemplate]);
+  }, [selectedTemplate?.id]);
+
 
   const handleSelect = (template: Template | null) => {
     setSelectedTemplate(template);
   };
+
 
   const addNewTemplate = () => {
     const newTemplate: Template = {
@@ -279,9 +280,11 @@ export function Templates() {
 
               <SmartEditor
                 ref={editorRef}
+                initialMarkdown={selectedTemplate.content}
                 placeholderText="Start typing your template here..."
                 className="flex-1"
               />
+
             </>
           ) : isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
