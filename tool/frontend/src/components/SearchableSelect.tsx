@@ -93,7 +93,10 @@ export function SearchableSelect({
                 className={`px-3 py-2 hover:bg-gray-50 cursor-pointer text-sm ${
                   opt.id === value ? 'bg-blue-50 text-blue-900 font-medium' : 'text-gray-700'
                 }`}
-                onClick={() => handleSelect(opt.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelect(opt.id);
+                }}
               >
                 {opt.name}
               </div>
@@ -105,7 +108,8 @@ export function SearchableSelect({
           {onAddSpecial && query.trim() !== '' && !exactMatch && (
             <div
               className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 cursor-pointer text-sm font-semibold border-t border-blue-100 flex items-center gap-2 sticky bottom-0"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onAddSpecial(query);
                 setIsOpen(false);
               }}
