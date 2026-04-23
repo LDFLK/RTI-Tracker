@@ -7,6 +7,7 @@ import { Save, Plus, Move, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Pagination } from '../components/Pagination';
 import { SmartEditor, SmartEditorRef } from '../components/SmartEditor';
+import { RTI_VARIABLES } from '../utils/variableUtils';
 
 export function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -46,18 +47,6 @@ export function Templates() {
     fetchTemplates(1);
   }, []);
 
-  const variables = [
-    { name: 'Date', code: '{{date}}', desc: 'Current Date' },
-    { name: 'Sender Name', code: '{{sender_name}}', desc: 'Applicant Name' },
-    { name: 'Sender Email', code: '{{sender_email}}', desc: 'Applicant Email' },
-    { name: 'Sender Address', code: '{{sender_address}}', desc: 'Applicant Address' },
-    { name: 'Sender Contact No', code: '{{sender_contact_no}}', desc: 'Applicant Contact No' },
-    { name: 'Receiver Institution', code: '{{receiver_institution}}', desc: 'Target Institution' },
-    { name: 'Receiver Position', code: '{{receiver_position}}', desc: 'Target Position' },
-    { name: 'Receiver Email', code: '{{receiver_email}}', desc: 'Receiver Email' },
-    { name: 'Receiver Address', code: '{{receiver_address}}', desc: 'Receiver Address' },
-    { name: 'Receiver Contact No', code: '{{receiver_contact_no}}', desc: 'Receiver Contact No' },
-  ];
 
   // Sync editor when template changes
   useEffect(() => {
@@ -315,7 +304,7 @@ export function Templates() {
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {variables.map((v) => (
+              {RTI_VARIABLES.map((v) => (
                 <div
                   key={v.name}
                   draggable

@@ -18,6 +18,7 @@ import { RTIRequest, Sender, Receiver } from '../types/db';
 import { Template } from '../types/rti';
 import { Column } from '../types/table';
 import { mockSenders } from '../data/mockData';
+import { getVariableValues } from '../utils/variableUtils';
 
 
 type View = 'list' | 'create';
@@ -208,19 +209,7 @@ export function RTIRequests() {
   const placeholders = useMemo(() => {
     const sender = senders.find((s: Sender) => s.id === formData.senderId);
     const receiver = receivers.find((r: Receiver) => r.id === formData.receiverId);
-
-    return {
-      '{{date}}': formData.requestDate,
-      '{{sender_name}}': sender?.name || '',
-      '{{sender_email}}': sender?.email || '',
-      '{{sender_address}}': sender?.address || '',
-      '{{sender_contact_no}}': sender?.contactNo || '',
-      '{{receiver_institution}}': receiver?.institutionName || '',
-      '{{receiver_position}}': receiver?.positionName || '',
-      '{{receiver_email}}': receiver?.email || '',
-      '{{receiver_address}}': receiver?.address || '',
-      '{{receiver_contact_no}}': receiver?.contactNo || '',
-    };
+    return getVariableValues(formData.requestDate, sender, receiver);
   }, [formData.senderId, formData.receiverId, formData.requestDate, senders, receivers]);
 
   if (view === 'create') {
