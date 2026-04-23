@@ -130,7 +130,7 @@ export function RTIRequests() {
 
   const handleSave = async (isDispatch: boolean) => {
     const rawContent = editorRef.current?.getMarkdown() || formData.content;
-    
+
     // 1. Generate PDF and final content via utility
     const sender = senders.find(s => s.id === formData.senderId);
     const receiver = receivers.find(r => r.id === formData.receiverId);
@@ -369,7 +369,6 @@ export function RTIRequests() {
               <div className="flex justify-between items-center pt-4">
                 <Button variant="secondary" onClick={() => setStep(2)} className="flex items-center gap-2"><ChevronLeft className="w-4 h-4" /> Back</Button>
                 <div className="flex gap-4">
-                  <Button variant="outline" onClick={() => handleSave(false)} className="flex items-center gap-2"><Save className="w-4 h-4" /> Save Draft</Button>
                   <Button onClick={() => handleSave(true)} className="flex items-center gap-2 bg-blue-900 shadow-lg"><Send className="w-4 h-4" /> Dispatch & Download</Button>
                 </div>
               </div>
