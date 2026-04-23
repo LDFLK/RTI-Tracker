@@ -1,8 +1,9 @@
 from sqlmodel import Session, select, func
 from src.models import SenderRequest, SenderResponse, Sender, SenderListResponse, PaginationModel
-from src.core.exceptions import InternalServerException, ConflictException, BadRequestException
+from src.core.exceptions import InternalServerException, ConflictException, BadRequestException, NotFoundException
 from uuid import uuid4
 import logging
+from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 
 logger = logging.getLogger(__name__)
@@ -102,3 +103,25 @@ class SenderService:
             raise InternalServerException(
                 "[SENDER SERVICE] Failed to get senders"
             ) from e
+    
+    # get sender by id
+    def get_sender_by_id(self, *, sender_id: UUID) -> SenderResponse:
+        try:
+            # fetch the record from the table
+            statement = select(Sender).where(Sender.id == sender_id)
+            result = self.session.exec(statement).first()
+
+            if result is None:
+                raise NotFoundException("Sender not found")
+
+            return SenderResponse.model_validate(result)
+        except NotFoundException:
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[SENDER SERVICE] Error getting sender: {e}")
+            raise InternalServerException(
+                "[SENDER SERVICE] Failed to get sender"
+            ) from e
+        
+
