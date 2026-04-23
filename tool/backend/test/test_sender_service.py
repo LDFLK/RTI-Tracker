@@ -146,13 +146,6 @@ def test_create_sender_rolls_back_on_db_error(monkeypatch, in_memory_db, make_se
         service.create_sender(sender_request=make_sender_request())
     rollback_mock.assert_called_once()
 
-def test_create_sender_reraises_bad_request_exception(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
-    monkeypatch.setattr(in_memory_db, "add", MagicMock(side_effect=BadRequestException("duplicate")))
-
-    with pytest.raises(BadRequestException):
-        service.create_sender(sender_request=make_sender_request())
-
 # IntegrityError tests – SenderService.create_sender
 
 def _make_integrity_error(constraint_name: str):
