@@ -76,13 +76,13 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
   // Helper to render text with markdown support (bold, italic)
   const renderRichText = (text: string, x: number, y: number, maxWidth: number): number => {
     const tokens: { text: string; style: string }[] = [];
-    
+
     // Split by all possible markdown markers, preserving them
     const segments = text.split(/(\*\*\*|___|\*\*|__|\*|_)/);
-    
+
     let isBold = false;
     let isItalic = false;
-    
+
     segments.forEach(seg => {
       if (seg === '***' || seg === '___') {
         isBold = !isBold;
@@ -96,24 +96,24 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
         if (isBold && isItalic) style = 'bolditalic';
         else if (isBold) style = 'bold';
         else if (isItalic) style = 'italic';
-        
+
         tokens.push({ text: seg, style });
       }
     });
 
     let currentX = x;
     let currentY = y;
-    const lineHeight = 7;
+    const lineHeight = 5;
 
     tokens.forEach(token => {
       doc.setFont('helvetica', token.style);
-      
+
       const words = token.text.split(/(\s+)/);
       words.forEach(word => {
         if (word === '') return;
         const safeWord = word.replace(/[\u00A0\u1680\u180e\u2000-\u200b\u202f\u205f\u3000\ufeff]/g, ' ');
         const wordWidth = doc.getTextWidth(safeWord);
-        
+
         if (currentX + wordWidth > x + maxWidth && safeWord.trim().length > 0) {
           currentX = x;
           currentY += lineHeight;
@@ -123,7 +123,7 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
             doc.setFont('helvetica', token.style);
           }
         }
-        
+
         doc.text(safeWord, currentX, currentY);
         currentX += wordWidth;
       });
@@ -156,7 +156,7 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
     } else {
       doc.setFontSize(11);
       cursorY = renderRichText(line.trim(), margin, cursorY, contentWidth);
-      cursorY += 5; // Paragraph spacing
+      cursorY += 6; // Paragraph spacing
     }
   });
 
