@@ -1,13 +1,11 @@
 from sqlmodel import Session
 from src.models import SenderRequest, SenderResponse, Sender
-from src.core.exceptions import InternalServerException, BadRequestException, ConflictException
+from src.core.exceptions import InternalServerException, ConflictException
 from uuid import uuid4
 import logging
 from sqlalchemy.exc import IntegrityError
-import psycopg2
 
 logger = logging.getLogger(__name__)
-
 
 class SenderService:
     """
@@ -52,8 +50,6 @@ class SenderService:
 
             else:
                 raise ConflictException("Duplicate values violates unique constraint")
-        except BadRequestException:
-            raise
         except Exception as e:
             self.session.rollback()
             logger.error(f"[SENDER SERVICE] Error creating sender: {e}")

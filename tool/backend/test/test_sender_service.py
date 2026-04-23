@@ -156,7 +156,7 @@ def test_create_sender_reraises_bad_request_exception(monkeypatch, in_memory_db,
 # IntegrityError tests – SenderService.create_sender
 
 def _make_integrity_error(constraint_name: str):
-    """Build a fake IntegrityError that looks like a psycopg2 UniqueViolation."""
+    """Build a fake IntegrityError that looks like an UniqueViolation."""
     diag = MagicMock()
     diag.constraint_name = constraint_name
 
