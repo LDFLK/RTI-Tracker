@@ -27,13 +27,13 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
 
 
   // Helper to render text with markdown support (bold, italic)
-  const renderRichText = (text: string, x: number, y: number, maxWidth: number): number => {
+  const renderRichText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number = 5, initialBold: boolean = false): number => {
     const tokens: { text: string; style: string }[] = [];
 
     // Split by all possible markdown markers, preserving them
     const segments = text.split(/(\*\*\*|___|\*\*|__|\*|_)/);
 
-    let isBold = false;
+    let isBold = initialBold;
     let isItalic = false;
 
     segments.forEach(seg => {
@@ -56,7 +56,6 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
 
     let currentX = x;
     let currentY = y;
-    const lineHeight = 5;
 
     tokens.forEach(token => {
       doc.setFont('helvetica', token.style);
@@ -99,16 +98,16 @@ export const generateRTIPDF = async (data: PDFData): Promise<{ blob: Blob; fileN
     }
 
     if (line.startsWith('#')) {
-      doc.setFont('helvetica', 'bold');
-      const level = (line.match(/^#+/) || ['#'])[0].length;
-      doc.setFontSize(level === 1 ? 14 : 12);
-      const cleanHeader = line.replace(/^#+\s*/, '');
-      doc.text(cleanHeader, margin, cursorY);
-      cursorY += 10;
-      doc.setFontSize(11);
+      const level = line.startsWith('##') ? 2 : 1;
+      const title = line.replace(/^#+\s*/, '');
+      
+      doc.setFontSize(level === 1 ? 16 : 14);
+      // Headings are bold by default (initialBold = true)
+      cursorY = renderRichText(title, margin, cursorY, contentWidth, 7, true);
+      cursorY += 4; // Extra space after headings
     } else {
       doc.setFontSize(11);
-      cursorY = renderRichText(line.trim(), margin, cursorY, contentWidth);
+      cursorY = renderRichText(line.trim(), margin, cursorY, contentWidth, 5, false);
       cursorY += 6; // Paragraph spacing
     }
   });
