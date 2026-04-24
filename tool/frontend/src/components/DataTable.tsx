@@ -82,11 +82,11 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data.map((item) => (
+            {data.map((item, rowIndex) => (
               <tr key={(item as any).id} className="hover:bg-gray-50/50">
                 {columns.map((col, i) => (
                   <td key={i} className={`px-4 py-3 ${col.className || ''}`}>
-                    {col.render ? col.render(item) : (col.accessor ? String((item as any)[col.accessor] ?? '-') : '-')}
+                    {col.render ? col.render(item, rowIndex) : (col.accessor ? String((item as any)[col.accessor] ?? '-') : '-')}
                   </td>
                 ))}
 

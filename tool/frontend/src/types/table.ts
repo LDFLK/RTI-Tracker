@@ -7,7 +7,7 @@ export interface Column<T> {
   accessor?: keyof T;
   className?: string;
   headerClassName?: string;
-  render?: (item: T) => React.ReactNode;
+  render?: (item: T, index: number) => React.ReactNode;
 }
 
 

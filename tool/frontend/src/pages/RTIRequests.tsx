@@ -132,7 +132,7 @@ export function RTIRequests() {
   const handleSave = async (isDispatch: boolean) => {
     const rawContent = editorRef.current?.getMarkdown() || formData.content;
 
-    // 1. Generate PDF and final content via utility
+    // 1. Generate PDF and final content
     const sender = senders.find(s => s.id === formData.senderId);
     const receiver = receivers.find(r => r.id === formData.receiverId);
 
@@ -178,9 +178,13 @@ export function RTIRequests() {
 
   const columns: Column<RTIRequest>[] = [
     {
-      header: 'Reference ID',
-      accessor: 'referenceId',
-      className: 'font-mono text-xs text-gray-500 font-bold'
+      header: 'Ref',
+      render: (_: RTIRequest, index: number) => {
+        const page = pagination.page || 1;
+        const size = pagination.pageSize || 10;
+        const displayId = ((page - 1) * size) + index + 1;
+        return <span className="font-mono text-xs text-gray-500 font-bold">{displayId.toString()}</span>;
+      }
     },
     { header: 'Title', accessor: 'title', className: 'font-medium text-gray-900' },
     {
