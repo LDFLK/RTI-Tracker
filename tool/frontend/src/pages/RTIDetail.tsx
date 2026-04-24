@@ -78,7 +78,7 @@ export function RTIDetail() {
     setEventFormData({
       statusId: entry.statusId,
       direction: entry.direction as any,
-      description: entry.description,
+      description: entry.description || '',
       existingFiles: entry.files,
       newFiles: []
     });
