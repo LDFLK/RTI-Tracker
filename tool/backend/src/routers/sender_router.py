@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from src.services import SenderService
 from src.repositories.db import SessionDep
 from src.models import SenderResponse, SenderRequest, SenderListResponse, SenderUpdateRequest
@@ -54,7 +54,7 @@ async def update_sender_put_endpoint(
 ):
     return service.update_sender_put(sender_id=sender_id, sender_request=sender_request)
 
-@router.delete("/senders/{sender_id}", response_model=None)
+@router.delete("/senders/{sender_id}", response_model=None, status_code=status.HTTP_204_NO_CONTENT)
 async def delete_sender_endpoint(
     sender_id: UUID,
     service: SenderService = Depends(get_sender_service),

@@ -61,13 +61,6 @@ class SenderService:
     # get sender list
     def get_sender_list(self, *, page: int = 1, page_size: int = 10) -> SenderListResponse:
         try:
-            # # validate the page and page size
-            # if page <= 0 or page_size <= 0:
-            #     raise BadRequestException("Page and page size must be positive integers")
-            
-            # if page_size > 100:
-            #     raise BadRequestException("Page size cannot be greater than 100")
-            
             # calculate the offset
             offset = (page - 1) * page_size
 
@@ -95,8 +88,6 @@ class SenderService:
                 data=[SenderResponse.model_validate(r) for r in results],
                 pagination=pagination
             )
-        # except BadRequestException:
-        #     raise
         except Exception as e:
             self.session.rollback()
             logger.error(f"[SENDER SERVICE] Error getting senders: {e}")
@@ -135,17 +126,12 @@ class SenderService:
                 raise NotFoundException("Sender not found")
 
             # update(PATCH) the record
-            if sender_request.name is not None:
-                result.name = sender_request.name
+            # get only provided fields (including explicit nulls)
+            update_data = sender_request.model_dump(exclude_unset=True)
 
-            if sender_request.email is not None:
-                result.email = sender_request.email
-
-            if sender_request.address is not None:
-                result.address = sender_request.address
-
-            if sender_request.contact_no is not None:
-                result.contact_no = sender_request.contact_no
+            # apply updates dynamically
+            for field, value in update_data.items():
+                setattr(result, field, value)
 
             self.session.add(result)
             self.session.commit()
@@ -234,7 +220,7 @@ class SenderService:
             return None
         except IntegrityError as e:
             self.session.rollback()
-            # detect unique constraint
+            # detect foreign key constraint violation
             raise ConflictException(
                 "Cannot delete sender: they still have associated RTI requests. "
                 "Please delete or reassign those requests first."
