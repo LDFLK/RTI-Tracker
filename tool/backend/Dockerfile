@@ -33,4 +33,4 @@ COPY --chown=10014:10014 . .
 RUN uv sync --frozen --no-dev --no-editable
 
 # Run the app
-CMD ["fastapi", "run", "main.py", "--port", "8000", "--host", "0.0.0.0"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
