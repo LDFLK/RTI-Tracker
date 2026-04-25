@@ -8,16 +8,49 @@ from src.core.exceptions import BaseAPIException, api_exception_handler, validat
 from src.core.configs import settings
 from fastapi.exceptions import RequestValidationError
 
+from sqlalchemy import text
+from src.repositories.db import engine
+import asyncio
 
 # Configure logging to show INFO level messages
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# db retrying settings 
+MAX_RETRIES = settings.MAX_RETRIES
+RETRY_DELAY = settings.RETRY_DELAY  #seconds
+
+# synchronous(blocking) db ping helper
+def ping_db():
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Lifespan connection starting...")
+    
+    # bounded-retry loop for pinging the db
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            # run in threadpool to avoid blocking 
+            await asyncio.to_thread(ping_db)
+            logger.info("Database connection successful!")
+            # exit retry loop and continue startup on success
+            break
+        except Exception as e:
+            logger.warning(f"DB connection attempt {attempt}/{MAX_RETRIES} failed: {e}")
+
+            if attempt == MAX_RETRIES:
+                logger.critical("All DB connection attempts failed. Exiting.",exc_info=True)
+                raise RuntimeError("Cannot connect to database. Aborting startup.")
+            # delay for the next poll
+            await asyncio.sleep(RETRY_DELAY)
+    
     await http_client.start()
+    
     yield
+    engine.dispose()
+    
     await http_client.close()
     logger.info("Lifespan connection ending...")
 

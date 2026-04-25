@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
+    
+    # database bounded-retry
+    MAX_RETRIES:int=5
+    RETRY_DELAY:int=3  #in seconds
 
     # asgardio configuration
     ASGARDEO_ORG: str
