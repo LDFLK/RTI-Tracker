@@ -16,7 +16,6 @@ export const rtiRequestsService = {
       return {
         ...r,
         referenceId: r.referenceId || r.id.split('-')[1]?.toUpperCase(),
-        status: r.status || 'Pending',
         institutionName: r.institutionName || receiver?.institutionName || 'Unknown',
         positionName: r.positionName || receiver?.positionName || 'Unknown',
       } as RTIRequest;
@@ -24,8 +23,8 @@ export const rtiRequestsService = {
 
     if (search) {
       const q = search.toLowerCase();
-      allRequests = allRequests.filter(r => 
-        r.title.toLowerCase().includes(q) || 
+      allRequests = allRequests.filter(r =>
+        r.title.toLowerCase().includes(q) ||
         r.institutionName.toLowerCase().includes(q) ||
         r.positionName.toLowerCase().includes(q)
       );
@@ -60,7 +59,6 @@ export const rtiRequestsService = {
     return {
       ...r,
       referenceId: r.referenceId || r.id.split('-')[1]?.toUpperCase(),
-      status: r.status || 'Pending',
       rtiTemplateFile: templateFile
     };
   },
@@ -113,7 +111,6 @@ export const rtiRequestsService = {
       receiverAddress: receiver?.address || '',
       rtiTemplateTitle: template?.title || '-',
       rtiTemplateFile: template?.file || '',
-      status: payload.status || 'In Process',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -203,7 +200,7 @@ export const rtiRequestsService = {
     if (history) {
       const requestId = history.rtiRequestId;
       db.statusHistories = db.statusHistories.filter(h => h.id !== id);
-      
+
       // Update parent request timestamp
       const request = db.rtiRequests.find(r => r.id === requestId);
       if (request) {

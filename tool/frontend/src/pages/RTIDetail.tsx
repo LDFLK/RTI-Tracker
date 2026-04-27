@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, FileText, CheckCircle, Upload, Clock, User, Building2, Mail, X, Plus, Edit2 } from 'lucide-react';
+import { ChevronLeft, FileText, CheckCircle, Upload, Clock, User, Building2, Mail, X, Plus, Edit2, AlertTriangle } from 'lucide-react';
 import { rtiRequestsService } from '../services/rtiRequestsService';
-import { RTIRequest, RTIStatusHistory } from '../types/db';
+import { statusService } from '../services/statusService';
+import { RTIRequest, RTIStatusHistory, RTIStatus } from '../types/db';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import toast from 'react-hot-toast';
@@ -12,6 +13,7 @@ export function RTIDetail() {
   const navigate = useNavigate();
   const [request, setRequest] = useState<RTIRequest | null>(null);
   const [history, setHistory] = useState<RTIStatusHistory[]>([]);
+  const [statuses, setStatuses] = useState<RTIStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Event Modal State
@@ -29,30 +31,19 @@ export function RTIDetail() {
   // Delete Confirmation State
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-  const statusOptions = ['APPROVAL', 'DELIVERY', 'ACKNOWLEDGE', 'ACCEPTED', 'REJECTION', 'APPEAL', 'COMPLETED'];
-
-  const statusDirectionConstraints: Record<string, ('outgoing' | 'incoming')[]> = {
-    'CREATED': ['outgoing'],
-    'APPROVAL': ['outgoing', 'incoming'],
-    'DELIVERY': ['outgoing', 'incoming'],
-    'ACKNOWLEDGE': ['incoming'],
-    'ACCEPTED': ['incoming'],
-    'REJECTION': ['incoming'],
-    'COMPLETED': ['incoming'],
-    'APPEAL': ['outgoing']
-  };
-
   useEffect(() => {
     const fetchAllData = async () => {
       if (!id) return;
       setIsLoading(true);
       try {
-        const [reqData, historyData] = await Promise.all([
+        const [reqData, historyData, statusData] = await Promise.all([
           rtiRequestsService.details(id),
-          rtiRequestsService.getHistory(id)
+          rtiRequestsService.getHistory(id),
+          statusService.getAll()
         ]);
         setRequest(reqData);
         setHistory(historyData.sort((a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime()));
+        setStatuses(statusData);
       } catch (e) {
         toast.error('Failed to load RTI details');
         navigate('/rti-requests');
@@ -91,7 +82,8 @@ export function RTIDetail() {
 
     // Validation: Require at least one document except for COMPLETED
     const totalFiles = eventFormData.existingFiles.length + eventFormData.newFiles.length;
-    if (eventFormData.statusId !== 'COMPLETED' && totalFiles === 0) {
+    const selectedStatusToSave = statuses.find(s => s.id === eventFormData.statusId);
+    if (selectedStatusToSave?.name !== 'COMPLETED' && totalFiles === 0) {
       toast.error('At least one document is required for this status');
       return;
     }
@@ -145,6 +137,27 @@ export function RTIDetail() {
     }
   };
 
+  const completedStatus = statuses.find(s => s.name.toLowerCase() === 'completed');
+  const isCompleted = completedStatus && history.some(h => h.statusId === completedStatus.id);
+
+  const handleMarkCompleted = async () => {
+    if (!id || !completedStatus) return;
+    try {
+      const newEntry = await rtiRequestsService.addHistory({
+        rtiRequestId: id,
+        statusId: completedStatus.id,
+        direction: 'incoming',
+        description: 'Request marked as completed.',
+        fileUploads: []
+      });
+      setHistory(prev => [newEntry, ...prev].sort((a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime()));
+      setRequest(prev => prev ? { ...prev, updatedAt: new Date() } : null);
+      toast.success('Marked as Completed');
+    } catch (e) {
+      toast.error('Failed to mark as completed');
+    }
+  };
+
   if (isLoading || !request) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
@@ -168,10 +181,11 @@ export function RTIDetail() {
           </button>
 
           <div className="flex gap-3">
-
-            <Button variant="primary" className="flex items-center gap-2 bg-blue-900">
-              <CheckCircle className="w-4 h-4" /> Mark as Completed
-            </Button>
+            {!isCompleted && completedStatus && (
+              <Button variant="primary" className="flex items-center gap-2 bg-blue-900" onClick={handleMarkCompleted}>
+                <CheckCircle className="w-4 h-4" /> Mark as Completed
+              </Button>
+            )}
           </div>
         </div>
 
@@ -181,14 +195,11 @@ export function RTIDetail() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{request?.title}</h1>
-                <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-bold uppercase tracking-wider border border-blue-100">
-                  In Progress
-                </span>
               </div>
               <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" />
-                  Last Updated: {new Date(request.updatedAt).toLocaleString()}
+                  Last Updated: {new Date(request.updatedAt).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </div>
                 <div className="flex items-center gap-1.5 font-mono text-xs">
                   Ref: {request?.referenceId || request?.id.split('-')[1]?.toUpperCase() || 'N/A'}
@@ -302,8 +313,17 @@ export function RTIDetail() {
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-bold text-gray-900">{h.statusId}</h4>
-                              {idx === 0 && h.statusId !== 'CREATED' && (
+                              <h4 className="text-sm font-bold">
+                                {statuses.find(s => s.id === h.statusId) ? (
+                                  <span className="text-gray-900">{statuses.find(s => s.id === h.statusId)?.name}</span>
+                                ) : (
+                                  <span className="flex items-center gap-1.5 text-gray-400 italic text-sm font-medium">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
+                                    Error loading status
+                                  </span>
+                                )}
+                              </h4>
+                              {idx === 0 && statuses.find(s => s.id === h.statusId)?.name !== 'CREATED' && (
                                 <button
                                   onClick={() => handleEditEvent(h)}
                                   className="p-1 text-gray-400 hover:text-blue-900 transition-colors"
@@ -313,7 +333,7 @@ export function RTIDetail() {
                                 </button>
                               )}
                             </div>
-                            <span className="text-[10px] font-medium text-gray-400">{new Date(h.entryTime).toLocaleString()}</span>
+                            <span className="text-[10px] font-medium text-gray-400">{new Date(h.entryTime).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
 
                           <div className="flex items-center gap-3 py-1">
@@ -379,20 +399,14 @@ export function RTIDetail() {
                   value={eventFormData.statusId}
                   onChange={(e) => {
                     const statusId = e.target.value;
-                    const allowed = statusDirectionConstraints[statusId] || ['outgoing', 'incoming'];
                     let direction = eventFormData.direction;
-                    
-                    // Auto-select if only one direction is allowed
-                    if (allowed.length === 1) {
-                      direction = allowed[0];
-                    }
-                    
+
                     setEventFormData({ ...eventFormData, statusId, direction });
                   }}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-900 transition-colors"
                 >
                   <option value="">Select Status</option>
-                  {statusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  {statuses.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
 
@@ -400,15 +414,13 @@ export function RTIDetail() {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Direction</label>
                 <div className="flex gap-4">
                   {['outgoing', 'incoming'].map((dir) => {
-                    const isAllowed = !eventFormData.statusId || (statusDirectionConstraints[eventFormData.statusId] || []).includes(dir as any);
                     return (
-                      <label key={dir} className={`flex-1 ${isAllowed ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}`}>
+                      <label key={dir} className="flex-1 cursor-pointer">
                         <input
                           type="radio"
                           className="sr-only peer"
                           name="direction"
                           value={dir}
-                          disabled={!isAllowed}
                           checked={eventFormData.direction === dir}
                           onChange={() => setEventFormData({ ...eventFormData, direction: dir as any })}
                         />
