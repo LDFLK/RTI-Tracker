@@ -45,4 +45,22 @@ def create_position_endpoint(
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
 ):
     return service.create_position(position_request=position_request)
+
+@router.patch("/positions/{position_id}", response_model=PositionResponse)
+def update_position_patch_endpoint(
+    position_id: UUID,
+    position_request: PositionRequest,
+    service: PositionService = Depends(get_position_service),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+):
+    return service.update_position_patch(position_id=position_id, position_request=position_request)
+
+@router.put("/positions/{position_id}", response_model=PositionResponse)
+def update_position_put_endpoint(
+    position_id: UUID,
+    position_request: PositionRequest,
+    service: PositionService = Depends(get_position_service),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+):
+    return service.update_position_put(position_id=position_id, position_request=position_request)
     
