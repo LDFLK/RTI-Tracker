@@ -1,5 +1,5 @@
 import { Template } from '../types/rti';
-import { Institution, Position, Receiver, Sender } from '../types/db';
+import { Institution, Position, Receiver, Sender, RTIStatus } from '../types/db';
 
 
 export const mockTemplates: Template[] = [
@@ -154,7 +154,6 @@ export const mockRTIRequests: any[] = [
     positionName: 'Public Information Officer',
     senderName: 'Lanka Data Foundation',
     senderEmail: 'contact@lankadata.org',
-    status: 'In Progress',
     createdAt: new Date('2024-01-10'),
     updatedAt: new Date('2024-01-15'),
   },
@@ -170,7 +169,6 @@ export const mockRTIRequests: any[] = [
     positionName: 'Appellate Authority',
     senderName: 'Lanka Data Foundation',
     senderEmail: 'contact@lankadata.org',
-    status: 'In Progress',
     createdAt: new Date('2024-02-05'),
     updatedAt: new Date('2024-02-20'),
   }
@@ -180,7 +178,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-1',
     rtiRequestId: 'rti-1',
-    statusId: 'CREATED',
+    statusId: 'stat-1',
     direction: 'outgoing',
     description: 'Initial RTI Request created.',
     entryTime: new Date('2024-01-10T10:00:00'),
@@ -192,7 +190,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-2',
     rtiRequestId: 'rti-1',
-    statusId: 'APPROVAL',
+    statusId: 'stat-2',
     direction: 'outgoing',
     description: 'RTI Request sent for internal sign-off.',
     entryTime: new Date('2024-01-15T14:30:00'),
@@ -204,7 +202,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-3',
     rtiRequestId: 'rti-1',
-    statusId: 'APPROVAL',
+    statusId: 'stat-2',
     direction: 'incoming',
     description: 'Signed RTI Request received back from authority.',
     entryTime: new Date('2024-01-20T14:30:00'),
@@ -216,7 +214,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-4',
     rtiRequestId: 'rti-1',
-    statusId: 'DELIVERY',
+    statusId: 'stat-3',
     direction: 'outgoing',
     description: 'Finalized RTI Request dispatched to the target institution.',
     entryTime: new Date('2024-01-25T14:30:00'),
@@ -228,7 +226,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-5',
     rtiRequestId: 'rti-1',
-    statusId: 'ACKNOWLEDGE',
+    statusId: 'stat-4',
     direction: 'incoming',
     description: 'Receiver acknowledged receipt of the RTI request.',
     entryTime: new Date('2024-01-26T10:00:00'),
@@ -240,7 +238,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-6',
     rtiRequestId: 'rti-1',
-    statusId: 'DELIVERY',
+    statusId: 'stat-3',
     direction: 'incoming',
     description: 'Receiver requested additional clarification via email.',
     entryTime: new Date('2024-01-28T11:00:00'),
@@ -252,7 +250,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-7',
     rtiRequestId: 'rti-2',
-    statusId: 'CREATED',
+    statusId: 'stat-1',
     direction: 'outgoing',
     description: 'Initial RTI Request created.',
     entryTime: new Date('2024-02-05T09:00:00'),
@@ -264,7 +262,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-10',
     rtiRequestId: 'rti-2',
-    statusId: 'APPROVAL',
+    statusId: 'stat-2',
     direction: 'outgoing',
     description: 'RTI Request sent for internal sign-off.',
     entryTime: new Date('2024-02-06T10:00:00'),
@@ -276,7 +274,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-11',
     rtiRequestId: 'rti-2',
-    statusId: 'APPROVAL',
+    statusId: 'stat-2',
     direction: 'incoming',
     description: 'Signed RTI Request received back from authority.',
     entryTime: new Date('2024-02-07T14:30:00'),
@@ -288,7 +286,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-8',
     rtiRequestId: 'rti-2',
-    statusId: 'REJECTION',
+    statusId: 'stat-6',
     direction: 'incoming',
     description: 'Request rejected due to missing technical details.',
     entryTime: new Date('2024-02-10T15:00:00'),
@@ -300,7 +298,7 @@ export const mockStatusHistories: any[] = [
   {
     id: 'h-9',
     rtiRequestId: 'rti-2',
-    statusId: 'APPEAL',
+    statusId: 'stat-8',
     direction: 'outgoing',
     description: 'Appeal filed against the rejection of budget details.',
     entryTime: new Date('2024-02-15T09:00:00'),
@@ -309,4 +307,15 @@ export const mockStatusHistories: any[] = [
     createdAt: new Date('2024-02-15'),
     updatedAt: new Date('2024-02-15'),
   }
+];
+
+export const mockStatuses: RTIStatus[] = [
+  { id: 'stat-1', name: 'CREATED', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-2', name: 'APPROVAL', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-3', name: 'DELIVERY', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-4', name: 'ACKNOWLEDGE', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-5', name: 'ACCEPTED', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-6', name: 'REJECTION', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-7', name: 'COMPLETED', createdAt: new Date(), updatedAt: new Date() },
+  { id: 'stat-8', name: 'APPEAL', createdAt: new Date(), updatedAt: new Date() }
 ];

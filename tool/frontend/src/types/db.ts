@@ -63,7 +63,6 @@ export interface RTIRequest {
   receiverAddress?: string;
   rtiTemplateTitle?: string;
   rtiTemplateFile?: string;
-  status: string;
   createdAt: Date;
   updatedAt: Date;
 }

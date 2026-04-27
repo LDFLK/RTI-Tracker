@@ -182,7 +182,6 @@ export function RTIRequests() {
         rtiTemplateId: formData.templateId === 'scratch' ? '' : formData.templateId,
         content: finalMarkdown,
         file: pdfFile,
-        status: 'In Process'
       });
 
       toast.success(`RTI request ${isDispatch ? 'dispatched' : 'saved'} and PDF downloaded`);
@@ -212,10 +211,6 @@ export function RTIRequests() {
           <span className="text-[10px] text-gray-500 uppercase tracking-wider">{r.positionName}</span>
         </div>
       )
-    },
-    {
-      header: 'Status',
-      render: (r: RTIRequest) => <StatusBadge status={r.status} />
     },
     {
       header: 'Last Updated',
