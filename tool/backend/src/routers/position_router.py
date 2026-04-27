@@ -22,7 +22,7 @@ def get_positions_endpoint(
     return response
 
 @router.get("/positions/{position_id}", response_model=PositionResponse)
-async def get_position_by_id_endpoint(
+def get_position_by_id_endpoint(
     position_id: UUID,
     service: PositionService = Depends(get_position_service),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
@@ -30,7 +30,7 @@ async def get_position_by_id_endpoint(
     return service.get_position_by_id(position_id=position_id)
 
 @router.delete("/positions/{position_id}", response_model=None, status_code=status.HTTP_204_NO_CONTENT)
-async def delete_position_endpoint(
+def delete_position_endpoint(
     position_id: UUID,
     service: PositionService = Depends(get_position_service),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))

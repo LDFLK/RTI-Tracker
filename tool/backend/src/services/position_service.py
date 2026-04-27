@@ -57,8 +57,7 @@ class PositionService:
     def get_position_by_id(self, *, position_id: UUID) -> PositionResponse:
         try:
             # fetch the record from the table
-            statement = select(Position).where(Position.id == position_id)
-            result = self.session.exec(statement).first()
+            result = self.session.get(Position, position_id)
 
             if result is None:
                 raise NotFoundException("Position not found")
@@ -67,7 +66,6 @@ class PositionService:
         except NotFoundException:
             raise
         except Exception as e:
-            self.session.rollback()
             logger.error(f"[POSITION SERVICE] Error getting position: {e}")
             raise InternalServerException(
                 "[POSITION SERVICE] Failed to get position"
@@ -77,8 +75,7 @@ class PositionService:
     def delete_position(self, *, position_id: UUID) -> None:
         try:
             # fetch the record from the table
-            statement = select(Position).where(Position.id == position_id)
-            result = self.session.exec(statement).first()
+            result = self.session.get(Position, position_id)
 
             if result is None:
                 raise NotFoundException("Position not found")
