@@ -1,6 +1,7 @@
 from src.services import PositionService
 from src.repositories.db import SessionDep
 from src.models.response_models import PositionListResponse, PositionResponse
+from src.models.request_models import PositionRequest
 from src.dependencies import RoleChecker
 from src.models import UserRole, User
 from fastapi import APIRouter, Depends, Query, status
@@ -36,4 +37,12 @@ def delete_position_endpoint(
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
 ):
     return service.delete_position(position_id=position_id)
+
+@router.post("/positions", response_model=PositionResponse)
+def create_position_endpoint(
+    position_request: PositionRequest,
+    service: PositionService = Depends(get_position_service),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+):
+    return service.create_position(position_request=position_request)
     
