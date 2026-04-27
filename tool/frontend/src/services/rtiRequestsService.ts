@@ -11,15 +11,7 @@ const REQUEST_FILES_BASE_URL = 'https://storage.rti.api/requests/';
 export const rtiRequestsService = {
   async list(page: number, pageSize: number, search?: string) {
     await sleep();
-    let filtered = [...db.rtiRequests];
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(r => r.title.toLowerCase().includes(q));
-    }
-
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    const data = filtered.slice(start, end).map(r => {
+    let allRequests = db.rtiRequests.map(r => {
       const receiver = db.receivers.find(rec => rec.id === r.receiverId);
       return {
         ...r,
@@ -30,13 +22,26 @@ export const rtiRequestsService = {
       } as RTIRequest;
     });
 
+    if (search) {
+      const q = search.toLowerCase();
+      allRequests = allRequests.filter(r => 
+        r.title.toLowerCase().includes(q) || 
+        r.institutionName.toLowerCase().includes(q) ||
+        r.positionName.toLowerCase().includes(q)
+      );
+    }
+
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const data = allRequests.slice(start, end);
+
     return {
       data,
       pagination: {
         page,
         pageSize,
-        totalItems: filtered.length,
-        totalPages: Math.ceil(filtered.length / pageSize)
+        totalItems: allRequests.length,
+        totalPages: Math.ceil(allRequests.length / pageSize)
       }
     };
   },

@@ -29,6 +29,7 @@ export function RTIRequests() {
   const [isLoading, setIsLoading] = useState(true);
   const [rows, setRows] = useState<RTIRequest[]>([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, totalItems: 0, pageSize: 10 });
+  const [search, setSearch] = useState('');
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -50,10 +51,10 @@ export function RTIRequests() {
     requestDate: new Date().toISOString().split('T')[0]
   });
 
-  const loadData = async (page = 1) => {
+  const loadData = async (page = 1, pageSize = pagination.pageSize, searchTerm = search) => {
     setIsLoading(true);
     try {
-      const res = await rtiRequestsService.list(page, 10);
+      const res = await rtiRequestsService.list(page, pageSize, searchTerm);
       setRows(res.data);
       setPagination(p => ({ ...p, ...res.pagination }));
     } catch (e) {
@@ -80,11 +81,11 @@ export function RTIRequests() {
 
   useEffect(() => {
     if (view === 'list') {
-      loadData(pagination.page);
+      loadData(pagination.page, pagination.pageSize, search);
     } else {
       loadLookups();
     }
-  }, [view, pagination.page]);
+  }, [view, pagination.page, pagination.pageSize, search]);
 
   const openCreate = () => {
     setStep(1);
@@ -205,7 +206,7 @@ export function RTIRequests() {
       header: 'Last Updated',
       render: (r: RTIRequest) => (
         <span className="text-xs text-gray-500">
-          {new Date(r.updatedAt).toLocaleDateString()}
+          {new Date(r.updatedAt).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </span>
       )
     },
@@ -386,11 +387,14 @@ export function RTIRequests() {
         <DataTable
           title="RTI Request"
           onAdd={openCreate}
+          searchTerm={search}
+          onSearch={setSearch}
           data={rows}
           columns={columns}
           loading={isLoading}
           pagination={pagination}
           onPageChange={(p) => setPagination(prev => ({ ...prev, page: p }))}
+          onPageSizeChange={(size) => setPagination(prev => ({ ...prev, page: 1, pageSize: size }))}
           onView={(r) => navigate(`/rti-requests/${r.id}`)}
           onDelete={(r) => setDeleteId(r.id)}
         />
