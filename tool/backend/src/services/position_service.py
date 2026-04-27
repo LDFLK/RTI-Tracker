@@ -2,8 +2,9 @@ import logging
 from src.models import PaginationModel
 from src.models.response_models import PositionListResponse, PositionResponse
 from src.models.table_schemas import Position
-from src.core.exceptions import InternalServerException
+from src.core.exceptions import InternalServerException, NotFoundException
 from sqlmodel import Session, select, func
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class PositionService:
         self.session = session
 
     # API
+    # get list of all positions
     def get_positions(
         self,
         *,
@@ -49,3 +51,23 @@ class PositionService:
         except Exception as e:
             logger.error(f"Error fetching positions: {e}")
             raise InternalServerException("Failed to fetch positions from database.") from e
+    
+    # get position by id
+    def get_position_by_id(self, *, position_id: UUID) -> PositionResponse:
+        try:
+            # fetch the record from the table
+            statement = select(Position).where(Position.id == position_id)
+            result = self.session.exec(statement).first()
+
+            if result is None:
+                raise NotFoundException("Position not found")
+
+            return PositionResponse.model_validate(result)
+        except NotFoundException:
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[SENDER SERVICE] Error getting sender: {e}")
+            raise InternalServerException(
+                "[SENDER SERVICE] Failed to get sender"
+            ) from e
