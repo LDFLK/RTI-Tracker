@@ -1,6 +1,5 @@
-from .senders import SenderRequest, SenderUpdateRequest
+from .senders import SenderRequest
 
 __all__ = [
-    "SenderRequest",
-    "SenderUpdateRequest"
+    "SenderRequest"
 ]

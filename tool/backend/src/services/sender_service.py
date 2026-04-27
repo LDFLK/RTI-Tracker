@@ -1,6 +1,6 @@
 from sqlmodel import Session, select, func
-from src.models import SenderRequest, SenderResponse, Sender, SenderListResponse, PaginationModel, SenderUpdateRequest
-from src.core.exceptions import InternalServerException, ConflictException, BadRequestException, NotFoundException
+from src.models import SenderRequest, SenderResponse, Sender, SenderListResponse, PaginationModel
+from src.core.exceptions import InternalServerException, ConflictException, NotFoundException
 from uuid import uuid4
 import logging
 from uuid import UUID
@@ -110,50 +110,6 @@ class SenderService:
             logger.error(f"[SENDER SERVICE] Error getting sender: {e}")
             raise InternalServerException(
                 "[SENDER SERVICE] Failed to get sender"
-            ) from e
-
-    # update sender [PATCH]
-    def update_sender_patch(self, *, sender_id: UUID, sender_request: SenderUpdateRequest) -> SenderResponse:
-        try:
-            # fetch the record from the table
-            result = self.session.get(Sender, sender_id)
-
-            if result is None:
-                raise NotFoundException(f"Sender with id {sender_id} not found.")
-
-            # update(PATCH) the record
-            # get only provided fields (including explicit nulls)
-            update_data = sender_request.model_dump(exclude_unset=True)
-
-            # apply updates dynamically
-            for field, value in update_data.items():
-                setattr(result, field, value)
-
-            self.session.add(result)
-            self.session.commit()
-            self.session.refresh(result)
-
-            return SenderResponse.model_validate(result)
-        except IntegrityError as e:
-            self.session.rollback()
-            # detect unique constraint
-            constraint = e.orig.diag.constraint_name
-
-            if constraint == "senders_email_key":
-                raise ConflictException("Email already exists")
-
-            elif constraint == "senders_contact_no_key":
-                raise ConflictException("Contact number already exists")
-
-            else:
-                raise ConflictException("Duplicate values violates unique constraint")
-        except NotFoundException:
-            raise
-        except Exception as e:
-            self.session.rollback()
-            logger.error(f"[SENDER SERVICE] Error updating sender: {e}")
-            raise InternalServerException(
-                "[SENDER SERVICE] Failed to update sender"
             ) from e
     
     # update sender [PUT]

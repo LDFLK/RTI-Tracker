@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, status, Path
 from typing_extensions import Annotated
 from src.services import SenderService
 from src.repositories.db import SessionDep
-from src.models import SenderResponse, SenderRequest, SenderListResponse, SenderUpdateRequest
+from src.models import SenderResponse, SenderRequest, SenderListResponse
 from src.models import User, UserRole
 from src.dependencies import RoleChecker
 from uuid import UUID
@@ -36,15 +36,6 @@ def get_sender_by_id_endpoint(
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
 ):
     return service.get_sender_by_id(sender_id=sender_id)
-    
-@router.patch("/senders/{sender_id}", response_model=SenderResponse)
-def update_sender_patch_endpoint(
-    sender_id: Annotated[UUID, Path(title="ID of the sender")],
-    sender_request: SenderUpdateRequest,
-    service: SenderService = Depends(get_sender_service),
-    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
-):
-    return service.update_sender_patch(sender_id=sender_id, sender_request=sender_request)
 
 @router.put("/senders/{sender_id}", response_model=SenderResponse)
 def update_sender_put_endpoint(

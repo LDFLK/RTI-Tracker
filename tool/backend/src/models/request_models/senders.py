@@ -23,11 +23,3 @@ class SenderRequest(BaseModel):
         if not self.email and not self.contact_no:
             raise BadRequestException("Either email or contact_no must be provided.")
         return self
-
-class SenderUpdateRequest(BaseModel):
-    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
-
-    name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    address: Optional[str] = None
-    contact_no: Optional[str] = Field(None, pattern=r"^(?:\+94|0)\d{9}$")
