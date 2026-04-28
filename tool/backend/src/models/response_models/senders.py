@@ -21,15 +21,17 @@ class SenderResponse(BaseModel):
         None, json_schema_extra={"example":"123 Main St, Colombo 01"}, description="Address of the sender"
     )
     contact_no: Optional[str] = Field(
-        None, json_schema_extra={"example":"0771234567"}, description="Contact number of the sender"
+        None, serialization_alias="contactNo", json_schema_extra={"example":"0771234567"}, description="Contact number of the sender"
     )
     created_at: datetime = Field(
         ...,
+        serialization_alias="createdAt",
         json_schema_extra={"example":"2026-03-31T09:00:00Z"},
         description="ISO 8601 timestamp of when the sender was created",
     )
     updated_at: datetime = Field(
         ...,
+        serialization_alias="updatedAt",
         json_schema_extra={"example":"2026-03-31T09:00:00Z"},
         description="ISO 8601 timestamp of when the sender was last updated",
     )
