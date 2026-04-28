@@ -1,7 +1,12 @@
 import { NavLink } from 'react-router-dom';
 import { FileCode, Users } from 'lucide-react';
 
+import { useAsgardeo } from "@asgardeo/react";
+
+
 export function Sidebar() {
+  const { signOut } = useAsgardeo();
+
   const navItems = [
     {
       name: 'Template Manager',
@@ -45,6 +50,9 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <div className="p-4 border-t border-gray-200">
+        <button onClick={() => signOut()}>Sign Out</button>
+      </div>
     </aside>
   );
 }
