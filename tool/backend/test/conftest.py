@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from src.utils import http_client
 from src.models import Sender
 from src.models.response_models import SenderResponse
-from src.models.request_models import SenderRequest
+from src.models.request_models import SenderRequest, InstitutionRequest
 from src.services import SenderService
 
 
@@ -192,6 +192,20 @@ def make_template_request():
         request.file = mock_upload
         return request
 
+    return _factory
+
+# institutions fixures
+@pytest.fixture
+def make_institution_request():
+    """Returns a factory for mock InstitutionRequest instance"""
+
+    def _factory(
+        name: str = "Test Institution"
+    ) -> MagicMock:
+        request = MagicMock(spec=InstitutionRequest)
+        request.name = name 
+        return request
+    
     return _factory
 
 @pytest.fixture
