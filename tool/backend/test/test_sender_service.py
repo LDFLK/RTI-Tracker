@@ -80,8 +80,8 @@ def test_send_good_request():
 
 # Unit tests – SenderService.create_sender
 
-def test_create_sender_with_email_returns_response(in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_with_email_returns_response(rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     result = service.create_sender(sender_request=make_sender_request())
 
     assert isinstance(result, SenderResponse)
@@ -89,8 +89,8 @@ def test_create_sender_with_email_returns_response(in_memory_db, make_sender_req
     assert result.email == "john@example.com"
     assert isinstance(result.id, uuid.UUID)
 
-def test_create_sender_with_contact_no_returns_response(in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_with_contact_no_returns_response(rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     result = service.create_sender(
         sender_request=make_sender_request(email=None, contact_no="0771234567")
     )
@@ -98,8 +98,8 @@ def test_create_sender_with_contact_no_returns_response(in_memory_db, make_sende
     assert result.contact_no == "0771234567"
     assert result.email is None
 
-def test_create_sender_with_all_fields(in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_with_all_fields(rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     result = service.create_sender(
         sender_request=make_sender_request(
             email="john@example.com",
@@ -113,34 +113,34 @@ def test_create_sender_with_all_fields(in_memory_db, make_sender_request):
     assert result.email == "john@example.com"
     assert result.contact_no == "0771234567"
 
-def test_create_sender_persists_to_db(in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_persists_to_db(rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     result = service.create_sender(sender_request=make_sender_request())
 
-    db_record = in_memory_db.exec(select(Sender).where(Sender.id == result.id)).first()
+    db_record = rti_template_db.exec(select(Sender).where(Sender.id == result.id)).first()
     assert db_record is not None
     assert db_record.name == "John Doe"
     assert db_record.email == "john@example.com"
 
-def test_create_sender_response_has_timestamps(in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_response_has_timestamps(rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     result = service.create_sender(sender_request=make_sender_request())
 
     assert isinstance(result.created_at, datetime)
     assert isinstance(result.updated_at, datetime)
 
-def test_create_sender_raises_internal_on_db_error(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
-    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=Exception("DB failure")))
+def test_create_sender_raises_internal_on_db_error(monkeypatch, rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
+    monkeypatch.setattr(rti_template_db, "commit", MagicMock(side_effect=Exception("DB failure")))
 
     with pytest.raises(InternalServerException):
         service.create_sender(sender_request=make_sender_request())
 
-def test_create_sender_rolls_back_on_db_error(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_rolls_back_on_db_error(monkeypatch, rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     rollback_mock = MagicMock()
-    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=Exception("DB failure")))
-    monkeypatch.setattr(in_memory_db, "rollback", rollback_mock)
+    monkeypatch.setattr(rti_template_db, "commit", MagicMock(side_effect=Exception("DB failure")))
+    monkeypatch.setattr(rti_template_db, "rollback", rollback_mock)
 
     with pytest.raises(InternalServerException):
         service.create_sender(sender_request=make_sender_request())
@@ -157,38 +157,38 @@ def _make_integrity_error(constraint_name: str):
     orig.diag = diag
     return IntegrityError(statement=None, params=None, orig=orig)
 
-def test_create_sender_raises_conflict_on_duplicate_email(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
-    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=_make_integrity_error("senders_email_key")))
+def test_create_sender_raises_conflict_on_duplicate_email(monkeypatch, rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
+    monkeypatch.setattr(rti_template_db, "commit", MagicMock(side_effect=_make_integrity_error("senders_email_key")))
 
     with pytest.raises(ConflictException) as exc_info:
         service.create_sender(sender_request=make_sender_request())
     assert "Email" in exc_info.value.message
 
-def test_create_sender_raises_conflict_on_duplicate_contact_no(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
-    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=_make_integrity_error("senders_contact_no_key")))
+def test_create_sender_raises_conflict_on_duplicate_contact_no(monkeypatch, rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
+    monkeypatch.setattr(rti_template_db, "commit", MagicMock(side_effect=_make_integrity_error("senders_contact_no_key")))
 
     with pytest.raises(ConflictException) as exc_info:
         service.create_sender(sender_request=make_sender_request(email=None, contact_no="0771234567"))
     assert "Contact" in exc_info.value.message
 
-def test_create_sender_rolls_back_on_integrity_error(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_rolls_back_on_integrity_error(monkeypatch, rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
     rollback_mock = MagicMock()
-    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=_make_integrity_error("senders_email_key")))
-    monkeypatch.setattr(in_memory_db, "rollback", rollback_mock)
+    monkeypatch.setattr(rti_template_db, "commit", MagicMock(side_effect=_make_integrity_error("senders_email_key")))
+    monkeypatch.setattr(rti_template_db, "rollback", rollback_mock)
 
     with pytest.raises(ConflictException):
         service.create_sender(sender_request=make_sender_request())
     rollback_mock.assert_called_once()
 
-def test_create_sender_integrity_error_default_fallback(monkeypatch, in_memory_db, make_sender_request):
-    service = SenderService(session=in_memory_db)
+def test_create_sender_integrity_error_default_fallback(monkeypatch, rti_template_db, make_sender_request):
+    service = SenderService(session=rti_template_db)
 
     rollback_mock = MagicMock()
-    monkeypatch.setattr(in_memory_db, "commit", MagicMock(side_effect=_make_integrity_error("unknown_constraint")))
-    monkeypatch.setattr(in_memory_db, "rollback", rollback_mock)
+    monkeypatch.setattr(rti_template_db, "commit", MagicMock(side_effect=_make_integrity_error("unknown_constraint")))
+    monkeypatch.setattr(rti_template_db, "rollback", rollback_mock)
 
     with pytest.raises(ConflictException) as exc:
         service.create_sender(sender_request=make_sender_request())

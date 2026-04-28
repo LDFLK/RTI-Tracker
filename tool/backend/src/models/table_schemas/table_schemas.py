@@ -16,15 +16,12 @@ class RTITemplate(SQLModel, table=True):
         None, description="Detailed description of the RTI template"
     )
     file: str = Field(..., description="URL of the RTI template markdown file")
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="ISO 8601 timestamp of when the template was created",
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="ISO 8601 timestamp of when the template was created")
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="ISO 8601 timestamp of when the template was last updated",
+        sa_column_kwargs={"onupdate": func.now()},
+        description="ISO 8601 timestamp of when the template was last updated"
     )
-
 
 class Institution(SQLModel, table=True):
     __tablename__ = "institutions"

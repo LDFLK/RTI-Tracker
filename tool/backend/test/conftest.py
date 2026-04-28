@@ -5,7 +5,7 @@ from aiohttp import ClientError
 from datetime import datetime, timezone, timedelta
 from sqlmodel import SQLModel, Session, create_engine
 from src.models import RTITemplate, Institution, Position
-from src.models.response_models import RTITemplateRequest
+from src.models.request_models import RTITemplateRequest
 from src.services.github_file_service import GithubFileService
 from fastapi import UploadFile
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
@@ -55,7 +55,7 @@ def patch_http_client_session():
 
 # fixtures for RTI Templates
 @pytest.fixture
-def in_memory_db():
+def rti_template_db():
     """Create an in-memory SQLite DB and provide a fresh session with test data."""
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
@@ -134,19 +134,39 @@ def make_file_service():
         relative_path: str = "rti-templates/test-uuid.md",
         absolute_path: str = "https://github.com/org/repo/blob/main/rti-templates/test-uuid.md",
         upload_side_effect=None,
+        update_side_effect=None,
         delete_return: bool = True,
     ) -> MagicMock:
         file_service = MagicMock()
+        
+        # mock create_file
         if upload_side_effect:
-            file_service.upload_file = AsyncMock(side_effect=upload_side_effect)
+            file_service.create_file = AsyncMock(side_effect=upload_side_effect)
         else:
-            file_service.upload_file = AsyncMock(
-                return_value={
-                    "relative_path": relative_path,
-                    "absolute_path": absolute_path,
-                }
-            )
+            file_service.create_file = AsyncMock(return_value={
+                "relative_path": relative_path,
+                "absolute_path": absolute_path,
+            })
+            
+        # mock update_file
+        if update_side_effect:
+            file_service.update_file = AsyncMock(side_effect=update_side_effect)
+        else:
+            file_service.update_file = AsyncMock(return_value={
+                "relative_path": relative_path,
+                "absolute_path": absolute_path,
+            })
+
         file_service.delete_file = AsyncMock(return_value=delete_return)
+        
+        # mock read_file
+        file_service.read_file = AsyncMock(return_value={
+            "content": b"# Old Content",
+            "sha": "old-sha"
+        })
+        
+        # remove restore_file/recreate_file mocks since they are deleted
+
         return file_service
 
     return _factory
@@ -159,6 +179,7 @@ def make_template_request():
     def _factory(
         title: str = "Test Template",
         description: str = "A test description",
+        id: str = None
     ) -> MagicMock:
         mock_upload = AsyncMock()
         mock_upload.content_type = "text/markdown"
@@ -166,6 +187,7 @@ def make_template_request():
         mock_upload.read = AsyncMock(return_value=b"# Test")
 
         request = MagicMock(spec=RTITemplateRequest)
+        request.id = id
         request.title = title
         request.description = description
         request.file = mock_upload
