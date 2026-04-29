@@ -1,4 +1,3 @@
-import { SignedIn, SignOutButton } from '@asgardeo/react'
 import { ProtectedRoute } from '@asgardeo/react-router';
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
