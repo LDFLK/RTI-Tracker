@@ -73,3 +73,17 @@ class Sender(SQLModel, table=True):
         sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
         description="ISO 8601 timestamp of when the sender was last updated",
     )
+
+
+class Status(SQLModel, table=True):
+    __tablename__ = "rti_statuses"
+
+    # table fields
+    id: UUID = Field(primary_key=True, description="Unique identifier for the status")
+    name: str = Field(index=True, unique=True, description="Name of the status")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="ISO 8601 timestamp of when the status was created")
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column_kwargs={"onupdate": lambda: datetime.now(timezone.utc)},
+        description="ISO 8601 timestamp of when the status was last updated"
+    )
