@@ -5,7 +5,7 @@ from aiohttp import ClientError
 from datetime import datetime, timezone, timedelta
 from sqlmodel import SQLModel, Session, create_engine
 from src.models import RTITemplate, Institution, Position, Receiver, ReceiverRequest, ReceiverUpdateRequest
-from src.models.request_models import RTITemplateRequest
+from src.models.request_models import RTITemplateRequest, PositionRequest
 from src.services.github_file_service import GithubFileService
 from fastapi import UploadFile
 from sqlalchemy import event
@@ -458,6 +458,17 @@ def sender_db():
         session.add_all(senders)
         session.commit()
         yield session
+
+@pytest.fixture
+def make_position_request():
+    """Factory for PositionRequest instances."""
+
+    def _factory(name: str = "Test Position") -> MagicMock:
+        request = MagicMock(spec=PositionRequest)
+        request.name = name
+        return request
+
+    return _factory
 
 @pytest.fixture
 def mock_sender_service():

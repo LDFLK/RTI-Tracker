@@ -122,12 +122,10 @@ class PositionService:
             return PositionResponse.model_validate(position)
         except IntegrityError as e:
             self.session.rollback()
-            # detect unique constraint
-            constraint = e.orig.diag.constraint_name
+            error_msg = str(e.orig).lower()
 
-            if constraint == "positions_name_key":
+            if "positions_name_key" in error_msg or "unique constraint failed: positions.name" in error_msg:
                 raise ConflictException("Position name already exists")
-
             else:
                 raise ConflictException("Duplicate values violates unique constraint")
         except Exception as e:
@@ -156,12 +154,10 @@ class PositionService:
             return PositionResponse.model_validate(result)
         except IntegrityError as e:
             self.session.rollback()
-            # detect unique constraint
-            constraint = e.orig.diag.constraint_name
+            error_msg = str(e.orig).lower()
 
-            if constraint == "positions_name_key":
+            if "positions_name_key" in error_msg or "unique constraint failed: positions.name" in error_msg:
                 raise ConflictException("Position name already exists")
-
             else:
                 raise ConflictException("Duplicate values violates unique constraint")
         except NotFoundException:
