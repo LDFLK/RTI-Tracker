@@ -8,6 +8,7 @@ from src.models import RTITemplate, Institution, Position, Receiver, ReceiverReq
 from src.models.request_models import RTITemplateRequest
 from src.services.github_file_service import GithubFileService
 from fastapi import UploadFile
+from sqlalchemy import event
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from src.utils import http_client
 from src.models import Sender
@@ -284,6 +285,13 @@ def position_db():
 def receiver_db():
     """Create an in-memory SQLite DB and provide a fresh session with test receivers."""
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     SQLModel.metadata.create_all(engine)
     now = datetime.now(timezone.utc)
     

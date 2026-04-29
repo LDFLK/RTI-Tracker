@@ -40,7 +40,10 @@ class ReceiverService:
                 raise ConflictException("Email already exists for another receiver.")
             if "receivers_contact_no_key" in error_msg or "receivers.contact_no" in error_msg:
                 raise ConflictException("Contact number already exists for another receiver.")
-            raise ConflictException("Duplicate value violates unique constraint.")
+            
+            # Clean up the DB error message to return it directly
+            clean_error = error_msg.replace('\n', ' ').strip()
+            raise ConflictException(f"Database constraint violation: {clean_error}")
         except Exception as e:
             self.session.rollback()
             logger.error(f"[RECEIVER SERVICE] Error creating Receiver: {e}")
@@ -130,7 +133,10 @@ class ReceiverService:
                 raise ConflictException("Email already exists for another receiver.")
             if "receivers_contact_no_key" in error_msg or "receivers.contact_no" in error_msg:
                 raise ConflictException("Contact number already exists for another receiver.")
-            raise ConflictException("Duplicate value violates unique constraint.")
+            
+            # Clean up the DB error message to return it directly
+            clean_error = error_msg.replace('\n', ' ').strip()
+            raise ConflictException(f"Database constraint violation: {clean_error}")
         except Exception as e:
             self.session.rollback()
             logger.error(f"[RECEIVER SERVICE] Error updating Receiver: {e}")
@@ -146,10 +152,17 @@ class ReceiverService:
             
             self.session.delete(receiver)
             self.session.commit()
+        except IntegrityError as e:
+            self.session.rollback()
+            # detect foreign key constraint violation
+            logger.error(f"[RECEIVER SERVICE] Error deleting receiver: {e}")
+            raise ConflictException(
+                "Cannot delete receiver because it is used in some other records"
+            ) from e
         except NotFoundException:
             raise
         except Exception as e:
             self.session.rollback()
-            logger.error(f"[RECEIVER SERVICE] Error deleting Receiver: {e}")
-            raise InternalServerException("Failed to delete Receiver from database.") from e
+            logger.error(f"[RECEIVER SERVICE] Error deleting receiver: {e}")
+            raise InternalServerException("Failed to delete receiver from database.") from e
 

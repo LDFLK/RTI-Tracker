@@ -237,5 +237,42 @@ def test_update_receiver_partial_institution(receiver_db, make_receiver_update_r
     assert response.institution.id == new_inst.id
     assert response.institution.name == "New Institution"
 
+def test_create_receiver_invalid_position_id(receiver_db, make_receiver_request):
+    """Test receiver creation with non-existent position ID."""
+    inst = receiver_db.exec(select(Institution)).first()
+    request = make_receiver_request(position_id=uuid4(), institution_id=inst.id)
+    service = ReceiverService(session=receiver_db)
     
+    with pytest.raises(ConflictException) as excinfo:
+        service.create_receiver(receiver_request=request)
+    assert "constraint violation" in str(excinfo.value).lower()
 
+def test_create_receiver_invalid_institution_id(receiver_db, make_receiver_request):
+    """Test receiver creation with non-existent institution ID."""
+    pos = receiver_db.exec(select(Position)).first()
+    request = make_receiver_request(position_id=pos.id, institution_id=uuid4())
+    service = ReceiverService(session=receiver_db)
+    
+    with pytest.raises(ConflictException) as excinfo:
+        service.create_receiver(receiver_request=request)
+    assert "constraint violation" in str(excinfo.value).lower()
+
+def test_update_receiver_invalid_position_id(receiver_db, make_receiver_update_request):
+    """Test receiver update with non-existent position ID."""
+    existing = receiver_db.exec(select(Receiver)).first()
+    service = ReceiverService(session=receiver_db)
+    request = make_receiver_update_request(position_id=uuid4())
+    
+    with pytest.raises(ConflictException) as excinfo:
+        service.update_receiver(receiver_id=existing.id, receiver_request=request)
+    assert "constraint violation" in str(excinfo.value).lower()
+
+def test_update_receiver_invalid_institution_id(receiver_db, make_receiver_update_request):
+    """Test receiver update with non-existent institution ID."""
+    existing = receiver_db.exec(select(Receiver)).first()
+    service = ReceiverService(session=receiver_db)
+    request = make_receiver_update_request(institution_id=uuid4())
+    
+    with pytest.raises(ConflictException) as excinfo:
+        service.update_receiver(receiver_id=existing.id, receiver_request=request)
+    assert "constraint violation" in str(excinfo.value).lower()
