@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS rti_status_histories (
     description TEXT,
     entry_time TIMESTAMPTZ NOT NULL,
     exit_time TIMESTAMPTZ,
-    file VARCHAR,
+    files JSONB,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
