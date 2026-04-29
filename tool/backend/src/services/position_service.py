@@ -91,8 +91,9 @@ class PositionService:
         except IntegrityError as e:
             self.session.rollback()
             # detect foreign key constraint violation
+            logger.error(f"[POSITION SERVICE] Error deleting receiver: {e}")
             raise ConflictException(
-                "Cannot delete position"
+                "Cannot delete position because it is used in some other records"
             ) from e
         except NotFoundException:
             raise
@@ -127,7 +128,8 @@ class PositionService:
             if "positions_name_key" in error_msg or "unique constraint failed: positions.name" in error_msg:
                 raise ConflictException("Position name already exists")
             else:
-                raise ConflictException("Duplicate values violates unique constraint")
+                clean_error = error_msg.replace('\n', ' ').strip()
+                raise ConflictException(f"Database constraint violation: {clean_error}")
         except Exception as e:
             self.session.rollback()
             logger.error(f"[POSITION SERVICE] Error creating position: {e}")
@@ -159,7 +161,8 @@ class PositionService:
             if "positions_name_key" in error_msg or "unique constraint failed: positions.name" in error_msg:
                 raise ConflictException("Position name already exists")
             else:
-                raise ConflictException("Duplicate values violates unique constraint")
+                clean_error = error_msg.replace('\n', ' ').strip()
+                raise ConflictException(f"Database constraint violation: {clean_error}")
         except NotFoundException:
             raise
         except Exception as e:
