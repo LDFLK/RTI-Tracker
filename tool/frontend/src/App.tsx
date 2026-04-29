@@ -17,13 +17,8 @@ export function App() {
             <Layout />
           </ProtectedRoute>
         }>
-          <Route path="templates" element={
-            <ProtectedRoute redirectTo="/signin">
-              <Templates /></ProtectedRoute>} />
-
-          <Route path="receivers" element={
-            <ProtectedRoute redirectTo="/signin">
-              <Receivers /></ProtectedRoute>} />
+          <Route path="templates" element={<Templates />} />
+          <Route path="receivers" element={<Receivers />} />
         </Route>
         <Route path="/signin" element={<LoginRedirect />} />
       </Routes>
