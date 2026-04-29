@@ -1,0 +1,186 @@
+/status:
+  # create a new status
+  post:
+    summary: Create a status
+    operationId: createStatus
+    description: Create a new status.
+    tags:
+      - Statuses
+    security:
+      - opaqueBearerToken: []
+    requestBody:
+      required: true
+      description: JSON request body with status metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/statuses.yaml#/StatusRequest"
+
+    responses:
+      "201":
+        description: Status created successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/statuses.yaml#/StatusResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Delivery
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "409":
+        $ref: "../components/responses/Errors.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # List all statuses
+  get:
+    summary: List all statuses
+    operationId: listStatuses
+    description: Returns a paginated list of all statuses.
+    tags:
+      - Statuses
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - $ref: "../components/parameters/Pagination.yaml#/PageParam"
+      - $ref: "../components/parameters/Pagination.yaml#/PageSizeParam"
+    responses:
+      "200":
+        description: A paginated list of statuses.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/statuses.yaml#/StatusListResponse"
+            example:
+              data:
+                - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  name: Delivery
+                  createdAt: "2026-03-31T09:00:00Z"
+                  updatedAt: "2026-03-31T09:00:00Z"
+              pagination:
+                page: 1
+                pageSize: 20
+                totalItems: 84
+                totalPages: 5
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+/status/{status_id}:
+  # Get a single status by ID
+  get:
+    summary: Get a status by ID
+    operationId: getStatusById
+    description: Returns a single status identified by its UUID.
+    tags:
+      - Statuses
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - name: status_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID of the status
+    responses:
+      "200":
+        description: Status found and returned successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/statuses.yaml#/StatusResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Delivery
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # Update a single status by ID
+  put:
+    summary: Update a status
+    operationId: updateStatus
+    description: Updates the name of a status.
+    tags:
+      - Statuses
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - name: status_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID of the status
+    requestBody:
+      required: true
+      description: JSON request body with status metadata.
+      content:
+        application/json:
+          schema:
+            $ref: "../components/schemas/statuses.yaml#/StatusRequest"
+    responses:
+      "200":
+        description: Status updated successfully.
+        content:
+          application/json:
+            schema:
+              $ref: "../components/schemas/statuses.yaml#/StatusResponse"
+            example:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              name: Delivery
+              createdAt: "2026-03-31T09:00:00Z"
+              updatedAt: "2026-03-31T09:00:00Z"
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses/Errors.yaml#/Conflict"
+      "422":
+        $ref: "../components/responses/Errors.yaml#/UnprocessableEntity"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"
+
+  # Delete a single status by ID
+  delete:
+    summary: Delete a status
+    operationId: deleteStatus
+    description: Permanently deletes a status by UUID. Returns 204 No Content on success. If the resource is linked with some other resources, cannot be deleted.
+    tags:
+      - Statuses
+    security:
+      - opaqueBearerToken: []
+    parameters:
+      - name: status_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ID of the status
+    responses:
+      "204":
+        description: Status deleted successfully. No content returned.
+      "401":
+        $ref: "../components/responses/Errors.yaml#/Unauthorized"
+      "404":
+        $ref: "../components/responses/Errors.yaml#/NotFound"
+      "409":
+        $ref: "../components/responses/Errors.yaml#/Conflict"
+      "500":
+        $ref: "../components/responses/Errors.yaml#/InternalServerError"

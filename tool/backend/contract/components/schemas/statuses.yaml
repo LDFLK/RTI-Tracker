@@ -1,0 +1,43 @@
+StatusRequest:
+  type: object
+  required:
+    - name
+  properties:
+    name:
+      type: string
+      example: Delivery
+      description: Name of the status.
+
+StatusResponse:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+      description: Unique identifier of the status.
+    name:
+      type: string
+      example: Delivery
+      description: Name of the status.
+    createdAt:
+      type: string
+      format: date-time
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the status was created (UTC).
+    updatedAt:
+      type: string
+      format: date-time
+      example: "2026-03-31T09:00:00Z"
+      description: ISO 8601 timestamp of when the status was last updated (UTC).
+
+StatusListResponse:
+  type: object
+  properties:
+    data:
+      type: array
+      items:
+        $ref: "#/StatusResponse"
+      description: List of statuses for the current page.
+    pagination:
+      $ref: "common.yaml#/Pagination"
