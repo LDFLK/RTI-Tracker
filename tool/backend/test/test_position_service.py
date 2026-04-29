@@ -1,13 +1,12 @@
 import pytest
 import uuid
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, IntegrityError
 from src.services.position_service import PositionService
 from src.models.response_models import PositionListResponse, PositionResponse
 from src.core.exceptions import InternalServerException, NotFoundException, ConflictException
 from sqlmodel import SQLModel, Session, create_engine
 from src.models.table_schemas import Position
 from sqlmodel import select
-
 
 # helpers
 
@@ -187,6 +186,25 @@ def test_delete_position_db_error(monkeypatch, position_db):
         service.delete_position(position_id=position_id)
 
     assert "[POSITION SERVICE] Failed to delete position" in str(exc.value)
+
+
+def test_delete_position_conflict_when_in_use(monkeypatch, position_db):
+    """Raise ConflictException when position is referenced by another record."""
+
+    position = position_db.exec(select(Position)).first()
+
+    # simulate a FK constraint violation on commit
+    def mock_commit(*args, **kwargs):
+        raise IntegrityError("FK constraint", None, None)
+
+    monkeypatch.setattr(position_db, "commit", mock_commit)
+
+    service = PositionService(session=position_db)
+
+    with pytest.raises(ConflictException) as exc:
+        service.delete_position(position_id=position.id)
+
+    assert "Cannot delete position" in str(exc.value)
 
 
 # update_position_put
