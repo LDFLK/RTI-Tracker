@@ -37,6 +37,15 @@ class SenderResponse(BaseModel):
     )
 
 
+class SenderShortResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
+    id: UUID = Field(..., description="Unique identifier for the sender")
+    name: str = Field(..., description="Name of the sender")
+    email: Optional[str] = Field(None, description="Email of the sender")
+    address: Optional[str] = Field(None, description="Address of the sender")
+    contact_no: Optional[str] = Field(None, serialization_alias="contactNo", description="Contact number of the sender")
+
+
 class SenderListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
     # attributes

@@ -1,0 +1,40 @@
+from fastapi import APIRouter, Depends, Form, UploadFile, File
+from typing import Annotated, Optional
+from uuid import UUID
+
+from src.services import RTIRequestService, GithubFileService
+from src.repositories.db import SessionDep
+from src.models.response_models import RTIRequestResponse
+from src.models.request_models import RTIRequestRequest
+from src.models import User, UserRole
+from src.dependencies import RoleChecker
+
+router = APIRouter(prefix="/api/v1", tags=["RTI-Requests"])
+
+def get_file_service() -> GithubFileService:
+    return GithubFileService()
+
+def get_rti_request_service(session: SessionDep, file_service: GithubFileService = Depends(get_file_service)):
+    return RTIRequestService(session, file_service)
+
+@router.post("/rti_requests", response_model=RTIRequestResponse)
+async def create_rti_request_endpoint(
+    title: Annotated[str, Form(description="Title of the RTI Request")],
+    sender_id: Annotated[UUID, Form(description="ID of the sender")],
+    receiver_id: Annotated[UUID, Form(description="ID of the receiver")],
+    file: Annotated[UploadFile, File(description="RTI Request file (pdf or doc)")],
+    description: Annotated[Optional[str], Form(description="Detailed description of the RTI Request")] = None,
+    rti_template_id: Annotated[Optional[UUID], Form(description="ID of the RTI Template")] = None,
+    service: RTIRequestService = Depends(get_rti_request_service),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+):
+    request_data = RTIRequestRequest(
+        title=title,
+        sender_id=sender_id,
+        receiver_id=receiver_id,
+        file=file,
+        description=description,
+        rti_template_id=rti_template_id
+    )
+    response = await service.create_rti_request(request_data=request_data)
+    return response

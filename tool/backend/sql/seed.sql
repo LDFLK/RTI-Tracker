@@ -68,12 +68,14 @@ INSERT INTO rti_templates (title, description, file) VALUES
 
 -- 6. RTI STATUSES
 INSERT INTO rti_statuses (name) VALUES 
-('SENT_FOR_APPROVAL'),
-('APPROVED'),
+('CREATED'),
+('APPROVAL'),
+('DELIVERY'),
+('ACKNOWLEDGE'),
+('ACCEPTED'),
 ('REJECTED'),
-('SENT_TO_RECEIVER'),
-('OTHER'),
-('COMPLETED');
+('COMPLETED'),
+('APPEAL');
 
 -- 7. RTI REQUESTS
 INSERT INTO rti_requests (title, description, sender_id, receiver_id, rti_template_id) VALUES 
