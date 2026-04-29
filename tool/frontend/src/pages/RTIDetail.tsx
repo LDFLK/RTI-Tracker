@@ -67,7 +67,7 @@ export function RTIDetail() {
     setIsEditing(true);
     setSelectedEntry(entry);
     setEventFormData({
-      statusId: entry.statusId,
+      statusId: entry.status.id,
       direction: entry.direction as any,
       description: entry.description || '',
       existingFiles: entry.files,
@@ -91,7 +91,7 @@ export function RTIDetail() {
     try {
       if (isEditing && selectedEntry) {
         const updated = await rtiRequestsService.updateHistory(selectedEntry.id, {
-          statusId: eventFormData.statusId,
+          status: completedStatus,
           direction: eventFormData.direction,
           description: eventFormData.description,
           files: eventFormData.existingFiles,
@@ -103,7 +103,7 @@ export function RTIDetail() {
       } else {
         const newEntry = await rtiRequestsService.addHistory({
           rtiRequestId: id,
-          statusId: eventFormData.statusId,
+          status: completedStatus,
           direction: eventFormData.direction,
           description: eventFormData.description,
           fileUploads: eventFormData.newFiles
@@ -138,14 +138,14 @@ export function RTIDetail() {
   };
 
   const completedStatus = statuses.find(s => s.name.toLowerCase() === 'completed');
-  const isCompleted = completedStatus && history.some(h => h.statusId === completedStatus.id);
+  const isCompleted = completedStatus && history.some(h => h.status.id === completedStatus.id);
 
   const handleMarkCompleted = async () => {
     if (!id || !completedStatus) return;
     try {
       const newEntry = await rtiRequestsService.addHistory({
         rtiRequestId: id,
-        statusId: completedStatus.id,
+        status: completedStatus,
         direction: 'incoming',
         description: 'Request marked as completed.',
         fileUploads: []
@@ -252,8 +252,8 @@ export function RTIDetail() {
                     <div className="flex items-start gap-3">
                       <Building2 className="w-4 h-4 text-gray-400 mt-0.5" />
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{request?.receiver?.institutionName}</p>
-                        <p className="text-xs text-gray-500">{request?.receiver?.positionName}</p>
+                        <p className="text-sm font-bold text-gray-900">{request?.receiver?.institution.name}</p>
+                        <p className="text-xs text-gray-500">{request?.receiver?.position.name}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -314,8 +314,8 @@ export function RTIDetail() {
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <h4 className="text-sm font-bold">
-                                {statuses.find(s => s.id === h.statusId) ? (
-                                  <span className="text-gray-900">{statuses.find(s => s.id === h.statusId)?.name}</span>
+                                {statuses.find(s => s.id === h.status.id) ? (
+                                  <span className="text-gray-900">{statuses.find(s => s.id === h.status.id)?.name}</span>
                                 ) : (
                                   <span className="flex items-center gap-1.5 text-gray-400 italic text-sm font-medium">
                                     <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />
@@ -323,7 +323,7 @@ export function RTIDetail() {
                                   </span>
                                 )}
                               </h4>
-                              {idx === 0 && statuses.find(s => s.id === h.statusId)?.name !== 'CREATED' && (
+                              {idx === 0 && statuses.find(s => s.id === h.status.id)?.name !== 'CREATED' && (
                                 <button
                                   onClick={() => handleEditEvent(h)}
                                   className="p-1 text-gray-400 hover:text-blue-900 transition-colors"

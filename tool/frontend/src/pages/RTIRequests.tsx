@@ -335,7 +335,7 @@ export function RTIRequests() {
                   </div>
                   <div className="flex flex-col space-y-1">
                     <label className="text-sm font-medium text-gray-700">Receiver (Institution - Position)</label>
-                    <SearchableSelect placeholder="Search for a receiver..." options={receivers.map(r => ({ id: r.id, name: `${r.institutionName} - ${r.positionName}` }))} value={formData.receiverId} onChange={(id) => setFormData({ ...formData, receiverId: id })} onSearchChange={setReceiverSearch} />
+                    <SearchableSelect placeholder="Search for a receiver..." options={receivers.map(r => ({ id: r.id, name: `${r.institution?.name} - ${r.position?.name}` }))} value={formData.receiverId} onChange={(id) => setFormData({ ...formData, receiverId: id })} onSearchChange={setReceiverSearch} />
                     {showErrors && !formData.receiverId && <FieldError error="Please select a receiver" />}
                   </div>
                 </div>

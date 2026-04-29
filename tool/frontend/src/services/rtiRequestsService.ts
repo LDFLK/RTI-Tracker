@@ -22,8 +22,8 @@ export const rtiRequestsService = {
       const q = search.toLowerCase();
       allRequests = allRequests.filter(r =>
         r.title.toLowerCase().includes(q) ||
-        (r.receiver?.institutionName || '').toLowerCase().includes(q) ||
-        (r.receiver?.positionName || '').toLowerCase().includes(q)
+        (r.receiver?.institution.name || '').toLowerCase().includes(q) ||
+        (r.receiver?.position.name || '').toLowerCase().includes(q)
       );
     }
 
@@ -110,7 +110,7 @@ export const rtiRequestsService = {
     const history: RTIStatusHistory = {
       id: crypto.randomUUID(),
       rtiRequestId: newRequest.id,
-      statusId: 'CREATED',
+      status: { id: 'status-1', name: 'CREATED', createdAt: new Date(), updatedAt: new Date() },
       direction: 'outgoing',
       description: 'Initial RTI Request created.',
       entryTime: new Date(),
@@ -139,7 +139,7 @@ export const rtiRequestsService = {
     const newEntry: RTIStatusHistory = {
       id: crypto.randomUUID(),
       rtiRequestId: payload.rtiRequestId!,
-      statusId: payload.statusId!,
+      status: payload.status!,
       direction: payload.direction!,
       description: payload.description || '',
       entryTime: new Date(),

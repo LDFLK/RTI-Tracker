@@ -24,13 +24,11 @@ export interface Sender {
 
 export interface Receiver {
   id: string;
-  institutionId: string;
-  positionId: string;
+  institution: Institution;
+  position: Position;
   email: string | null;
   contactNo: string | null;
   address: string | null;
-  institutionName?: string; // For UI display
-  positionName?: string;    // For UI display
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,7 +62,7 @@ export interface RTIStatus {
 export interface RTIStatusHistory {
   id: string;
   rtiRequestId: string;
-  statusId: string;
+  status: RTIStatus;
   direction: 'incoming' | 'outgoing';
   description: string | null;
   entryTime: Date;

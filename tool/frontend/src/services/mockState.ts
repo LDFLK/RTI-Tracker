@@ -9,9 +9,15 @@ class MockDb {
   positions: Position[] = [...mockPositions];
   senders: Sender[] = [...mockSenders];
   rtiRequests: RTIRequest[] = [...mockRTIRequests];
-  statusHistories: RTIStatusHistory[] = [...mockStatusHistories];
+  statusHistories: RTIStatusHistory[] = mockStatusHistories.map(h => {
+    const { statusId, ...rest } = h;
+    return {
+      ...rest,
+      status: mockStatuses.find(s => s.id === statusId)!
+    } as RTIStatusHistory;
+  });
   statuses: RTIStatus[] = [...mockStatuses];
-  
+
   templates: RTITemplateDB[] = mockTemplates.map(t => ({
     id: t.id,
     title: t.title,
