@@ -28,6 +28,7 @@ class AuthService:
                 response_data = await response.json()
                 
                 if response_data.get("active", False):
+                    # TODO: remove this logging when deploying to production
                     logger.info(f"Token introspection: {response_data}")
                     return response_data
                 
