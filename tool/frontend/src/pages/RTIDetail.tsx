@@ -318,8 +318,8 @@ export function RTIDetail() {
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <h4 className="text-sm font-bold">
-                                {statuses.find(s => s.id === h.status.id) ? (
-                                  <span className="text-gray-900">{statuses.find(s => s.id === h.status.id)?.name}</span>
+                                {h.status ? (
+                                  <span className="text-gray-900">{h.status.name}</span>
                                 ) : (
                                   <span className="flex items-center gap-1.5 text-gray-400 italic text-sm font-medium">
                                     <AlertTriangle className="w-3.5 h-3.5 text-gray-400" />

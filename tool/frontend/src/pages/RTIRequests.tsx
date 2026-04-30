@@ -311,8 +311,8 @@ export function RTIRequests() {
                     {showErrors && !formData.title && <FieldError error="Request title is required" />}
                   </div>
                   <div className="flex flex-col space-y-1.5">
-                    <label className="text-sm font-medium text-gray-700">Description</label>
-                    <textarea className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-blue-900 min-h-[120px]" placeholder="Brief description..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                    <label htmlFor="rti-description" className="text-sm font-medium text-gray-700">Description</label>
+                    <textarea id="rti-description" className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-blue-900 min-h-[120px]" placeholder="Brief description..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
                   </div>
                   <Input label="Request Date" type="date" value={formData.requestDate} onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })} />
                 </div>
