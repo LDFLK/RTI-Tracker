@@ -1,8 +1,9 @@
 from pydantic_settings import SettingsConfigDict, BaseSettings
 from pydantic import Field
 
+
 class Settings(BaseSettings):
-    
+
     # allowed origins
     ALLOWED_ORIGINS: str
 
@@ -11,10 +12,10 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    
+
     # database bounded-retry
-    MAX_RETRIES: int = Field(default=5, ge=1) # must >=1 second
-    RETRY_DELAY: int = Field(default=3, ge=0)  # must >= 0 second
+    MAX_RETRIES: int = Field(default=5, ge=1)  # must attempt at least once >=1
+    RETRY_DELAY: int = Field(default=3, ge=0)  # seconds to wait between retry attempts (0 = no delay).
 
     # asgardio configuration
     ASGARDEO_ORG: str
@@ -27,7 +28,7 @@ class Settings(BaseSettings):
     GITHUB_BRANCH: str
 
     # http client configuration
-    HTTP_POOL_SIZE: int = 50 
+    HTTP_POOL_SIZE: int = 50
     HTTP_POOL_SIZE_PER_HOST: int = 40
     HTTP_TTL_DNS_CACHE: int = 300
     HTTP_TIMEOUT_TOTAL: int = 90
@@ -39,5 +40,5 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-settings = Settings()
 
+settings = Settings()
