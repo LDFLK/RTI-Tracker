@@ -206,8 +206,8 @@ export function RTIRequests() {
       header: 'Receiver',
       render: (r: RTIRequest) => (
         <div className="flex flex-col">
-          <span className="text-sm font-semibold text-gray-900">{r.receiver?.institutionName}</span>
-          <span className="text-[10px] text-gray-500 uppercase tracking-wider">{r.receiver?.positionName}</span>
+          <span className="text-sm font-semibold text-gray-900">{r.receiver?.institution?.name}</span>
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider">{r.receiver?.position?.name}</span>
         </div>
       )
     },

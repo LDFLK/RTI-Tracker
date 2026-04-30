@@ -101,14 +101,16 @@ export function RTIDetail() {
         setRequest(prev => prev ? { ...prev, updatedAt: new Date() } : null);
         toast.success('Event updated');
       } else {
-        const newEntry = await rtiRequestsService.addHistory({
+        await rtiRequestsService.addHistory({
           rtiRequestId: id,
           status: completedStatus,
           direction: eventFormData.direction,
           description: eventFormData.description,
           fileUploads: eventFormData.newFiles
         });
-        setHistory(prev => [newEntry, ...prev].sort((a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime()));
+        // Re-fetch full history so previous entry's exitTime is reflected
+        const updatedHistory = await rtiRequestsService.getHistory(id);
+        setHistory(updatedHistory.sort((a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime()));
         setRequest(prev => prev ? { ...prev, updatedAt: new Date() } : null);
         toast.success('Event added');
       }
@@ -143,14 +145,16 @@ export function RTIDetail() {
   const handleMarkCompleted = async () => {
     if (!id || !completedStatus) return;
     try {
-      const newEntry = await rtiRequestsService.addHistory({
+      await rtiRequestsService.addHistory({
         rtiRequestId: id,
         status: completedStatus,
         direction: 'incoming',
         description: 'Request marked as completed.',
         fileUploads: []
       });
-      setHistory(prev => [newEntry, ...prev].sort((a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime()));
+      // Re-fetch full history so previous entry's exitTime is reflected
+      const updatedHistory = await rtiRequestsService.getHistory(id);
+      setHistory(updatedHistory.sort((a, b) => new Date(b.entryTime).getTime() - new Date(a.entryTime).getTime()));
       setRequest(prev => prev ? { ...prev, updatedAt: new Date() } : null);
       toast.success('Marked as Completed');
     } catch (e) {
@@ -333,7 +337,14 @@ export function RTIDetail() {
                                 </button>
                               )}
                             </div>
-                            <span className="text-[10px] font-medium text-gray-400">{new Date(h.entryTime).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className="text-[10px] font-medium text-gray-400">Start: {new Date(h.entryTime).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                              {h.exitTime ? (
+                                <span className="text-[10px] font-medium text-gray-400">End: {new Date(h.exitTime).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                              ) : (
+                                <span className="text-[10px] font-medium text-blue-400 italic">Active</span>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-3 py-1">

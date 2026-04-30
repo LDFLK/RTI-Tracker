@@ -136,18 +136,36 @@ export const rtiRequestsService = {
 
   async addHistory(payload: Partial<RTIStatusHistory> & { fileUploads?: File[] }) {
     await sleep();
+    const entryTime = new Date();
     const newEntry: RTIStatusHistory = {
       id: crypto.randomUUID(),
       rtiRequestId: payload.rtiRequestId!,
       status: payload.status!,
       direction: payload.direction!,
       description: payload.description || '',
-      entryTime: new Date(),
+      entryTime: entryTime,
       exitTime: null,
       files: payload.fileUploads ? payload.fileUploads.map(f => `https://storage.rti.api/requests/${f.name}`) : [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    // Update exitTime of the latest previous entry
+    const forThisRequest = db.statusHistories
+      .map((h, i) => ({ h, i }))
+      .filter(({ h }) => h.rtiRequestId === payload.rtiRequestId);
+
+    if (forThisRequest.length > 0) {
+      const latestEntry = forThisRequest.reduce((best, cur) =>
+        new Date(cur.h.entryTime).getTime() > new Date(best.h.entryTime).getTime() ? cur : best
+      );
+      db.statusHistories[latestEntry.i] = {
+        ...db.statusHistories[latestEntry.i],
+        exitTime: entryTime,
+        updatedAt: new Date()
+      };
+    }
+
     db.addStatusHistory(newEntry);
 
     // Update parent request timestamp

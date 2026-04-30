@@ -47,9 +47,26 @@ export interface RTIRequest {
   referenceId?: string;
   title: string;
   description: string | null;
-  sender: Sender;
-  receiver: Receiver;
-  template: RTITemplateDB;
+  sender: {
+    id: string;
+    name: string;
+    email: string | null;
+    contactNo: string | null;
+    address: string | null;
+  };
+  receiver: {
+    id: string;
+    email: string | null;
+    contactNo: string | null;
+    address: string | null;
+    institution: { id: string; name: string };
+    position: { id: string; name: string };
+  };
+  template: {
+    id: string;
+    title: string;
+    file: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
