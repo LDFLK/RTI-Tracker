@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Form, UploadFile, File
+from fastapi import APIRouter, Depends, Form, UploadFile, File, Query
 from typing import Annotated, Optional
 from uuid import UUID
 
 from src.services import RTIRequestService, GithubFileService
 from src.repositories.db import SessionDep
-from src.models.response_models import RTIRequestResponse
+from src.models.response_models import RTIRequestResponse, RTIRequestListResponse
 from src.models.request_models import RTIRequestRequest
 from src.models import User, UserRole
 from src.dependencies import RoleChecker
@@ -16,6 +16,16 @@ def get_file_service() -> GithubFileService:
 
 def get_rti_request_service(session: SessionDep, file_service: GithubFileService = Depends(get_file_service)):
     return RTIRequestService(session, file_service)
+
+@router.get("/rti_requests", response_model=RTIRequestListResponse)
+async def get_rti_requests_endpoint(
+    page: int = Query(1, ge=1, description="page number"),
+    page_size: int = Query(10, ge=1, le=100, description="page size"),
+    service: RTIRequestService = Depends(get_rti_request_service),
+    user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
+):
+    response = service.get_rti_requests(page=page, page_size=page_size)
+    return response
 
 @router.post("/rti_requests", response_model=RTIRequestResponse)
 async def create_rti_request_endpoint(

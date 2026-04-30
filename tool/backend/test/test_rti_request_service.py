@@ -3,7 +3,7 @@ import uuid
 import pytest
 import re
 from unittest.mock import MagicMock, AsyncMock, patch
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy import event
 from sqlmodel import SQLModel, Session, create_engine, select
 from datetime import datetime, timezone
@@ -20,6 +20,7 @@ from src.core.exceptions import (
     NotFoundException, ConflictException
 )
 
+# test create rti request
 @pytest.mark.asyncio
 async def test_create_rti_request_success(rti_request_db, make_file_service, make_rti_request_request):
     """Happy path: RTI Request is created along with status history."""
@@ -120,5 +121,85 @@ async def test_create_rti_request_integrity_error(rti_request_db, make_file_serv
     
     with pytest.raises(ConflictException):
         await service.create_rti_request(request_data=request)
+
+@pytest.mark.asyncio
+async def test_create_rti_request_without_description(rti_request_db, make_file_service, make_rti_request_request):
+    """Optional description can be None without breaking the creation flow."""
+    sender = rti_request_db.exec(select(Sender)).first()
+    receiver = rti_request_db.exec(select(Receiver)).first()
+    
+    service = RTIRequestService(session=rti_request_db, file_service=make_file_service())
+    request = make_rti_request_request(sender_id=sender.id, receiver_id=receiver.id, title="No Desc")
+    request.description = None
+    
+    result = await service.create_rti_request(request_data=request)
+    assert result.description is None
+    assert result.title == "No Desc"
+
+# test get rti request
+@pytest.mark.asyncio
+async def test_get_rti_requests_success(rti_request_db, make_file_service, make_rti_request_request):
+    """Verifies fetching paginated RTI Requests."""
+    sender = rti_request_db.exec(select(Sender)).first()
+    receiver = rti_request_db.exec(select(Receiver)).first()
+    
+    fs = make_file_service()
+    service = RTIRequestService(session=rti_request_db, file_service=fs)
+    
+    # Create 3 RTI requests
+    for i in range(3):
+        request = make_rti_request_request(
+            sender_id=sender.id,
+            receiver_id=receiver.id,
+            title=f"RTI Request {i}"
+        )
+        await service.create_rti_request(request_data=request)
+    
+    # Test fetching with page_size=2
+    response = service.get_rti_requests(page=1, page_size=2)
+    
+    assert len(response.data) == 2
+    assert response.pagination.totalItem == 3
+    assert response.pagination.totalPages == 2
+    assert response.pagination.page == 1
+    assert response.pagination.pageSize == 2
+
+@pytest.mark.asyncio
+async def test_get_rti_requests_empty_db(make_file_service):
+    """Test behavior when there are no requests in the database."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        service = RTIRequestService(session=session, file_service=make_file_service())
+        response = service.get_rti_requests()
+        
+        assert response.pagination.page == 1
+        assert response.pagination.totalItem == 0
+        assert response.pagination.totalPages == 0
+        assert response.data == []
+
+@pytest.mark.asyncio
+async def test_get_rti_requests_page_out_of_bounds(rti_request_db, make_file_service):
+    """Requesting a page beyond total pages should return empty list."""
+    service = RTIRequestService(session=rti_request_db, file_service=make_file_service())
+    response = service.get_rti_requests(page=10, page_size=2)
+    
+    assert response.pagination.page == 10
+    assert response.data == []
+
+@pytest.mark.asyncio
+async def test_get_rti_requests_internal_error(rti_request_db, monkeypatch, make_file_service):
+    """Simulate a database failure during listing and ensure InternalServerException is raised."""
+    service = RTIRequestService(session=rti_request_db, file_service=make_file_service())
+    
+    def fake_exec(*args, **kwargs):
+        raise OperationalError("Fake DB failure", None, None)
+    
+    monkeypatch.setattr(rti_request_db, "exec", fake_exec)
+    
+    with pytest.raises(InternalServerException):
+        service.get_rti_requests()
+
+
 
 

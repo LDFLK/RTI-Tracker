@@ -4,11 +4,11 @@ import logging
 from uuid import UUID, uuid4
 from typing import Dict
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import select, Session
-
+from sqlmodel import select, Session, func
+from src.models import PaginationModel
 from src.services.github_file_service import GithubFileService
 from src.models.table_schemas.table_schemas import RTIRequest, RTIStatus, RTIStatusHistories, RTIDirection, Receiver
-from src.models.response_models.rti_requests import RTIRequestResponse
+from src.models.response_models.rti_requests import RTIRequestResponse, RTIRequestListResponse
 from src.models.request_models.rti_requests import RTIRequestRequest
 from src.core.exceptions import InternalServerException, BadRequestException, NotFoundException, ConflictException
 from datetime import datetime, timezone
@@ -109,4 +109,38 @@ class RTIRequestService:
             logger.error(f"[RTI SERVICE] Error creating RTI request: {e}")
             raise InternalServerException(f"Failed to create RTI request: {e}") from e
 
+    # API
+    def get_rti_requests(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 10
+    ) -> RTIRequestListResponse:
+        """Fetches a paginated list of RTI Requests."""
+        try:
+            offset = (page - 1) * page_size
 
+            # fetch the records from the table
+            statement_records = select(RTIRequest).offset(offset).limit(page_size)
+            results = self.session.exec(statement_records).all()
+            
+            # fetch the total record count
+            statement_count = select(func.count()).select_from(RTIRequest)
+            total_items = self.session.exec(statement_count).one()
+
+            # pagination response
+            pagination = PaginationModel(
+                page=page,
+                pageSize=page_size,
+                totalItem=total_items,
+                totalPages=(total_items + page_size - 1) // page_size if total_items > 0 else 0
+            )
+            
+            # return the final response
+            return RTIRequestListResponse(
+                data=[RTIRequestResponse.model_validate(r) for r in results],
+                pagination=pagination
+            )
+        except Exception as e:
+            logger.error(f"Error fetching RTI requests: {e}")
+            raise InternalServerException("Failed to fetch RTI requests from database.") from e
