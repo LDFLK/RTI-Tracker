@@ -6,12 +6,6 @@ from src.models import PaginationModel
 from typing import Sequence, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
-class RTITemplateRequest(BaseModel):
-    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
-    # attributes
-    title: str = Field(..., description="Title of the RTI Template")
-    description: Optional[str] = Field(None, description="Detailed description of the RTI Template")
-    file: UploadFile = Field(..., description="RTI Template markdown file")
     
 class RTITemplateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
@@ -19,7 +13,7 @@ class RTITemplateResponse(BaseModel):
     id: UUID = Field(..., description="Unique identifier for the RTI template")
     title: str = Field(..., description="Title of the RTI template")
     description: Optional[str] = Field(None, description="Detailed description of the RTI template")
-    file: str = Field(..., description="Content of the RTI template in Markdown format")
+    file: str = Field(..., description="Relative path of the markdown file")
     created_at: datetime = Field(..., description="ISO 8601 timestamp of when the template was created")
     updated_at: datetime = Field(..., description="ISO 8601 timestamp of when the template was last updated")
 

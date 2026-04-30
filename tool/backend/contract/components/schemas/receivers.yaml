@@ -1,15 +1,15 @@
 ReceiverRequest:
   type: object
   required:
-    - position_id
-    - institution_id
+    - positionId
+    - institutionId
   properties:
-    position_id:
+    positionId:
       type: string
       format: uuid
       example: be7aa68e-c842-45cd-aab6-f576895b922f
       description: Position ID in UUID format
-    institution_id:
+    institutionId:
       type: string
       format: uuid
       example: be7aa68e-c842-45cd-aab6-f576895b922e
@@ -35,8 +35,8 @@ ReceiverResponse:
   type: object
   required:
     - id
-    - position_id
-    - institution_id
+    - position
+    - institution
     - email
     - address
     - contactNo
@@ -49,31 +49,23 @@ ReceiverResponse:
       readOnly: true
       example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
       description: Unique identifier of the receiver.
-    position_id:
-      type: string
-      format: uuid
-      readOnly: true
-      example: be7aa68e-c842-45cd-aab6-f576895b922d
-      description: Unique identifier of the position
-    institution_id:
-      type: string
-      format: uuid
-      readOnly: true
-      example: be7aa68e-c842-45cd-aab6-f576895b922e
-      description: Unique identifier of the institution
+    position:
+      $ref: "positions.yaml#/PositionResponse"
+    institution:
+      $ref: "institutions.yaml#/InstitutionResponse"
     email:
-      type: string
+      type: [ "string", "null" ]
       format: email
       readOnly: true
       example: contact@institution.com
       description: Official email address of the receiver
     address:
-      type: string
+      type: [ "string", "null" ]
       readOnly: true
       example: No:15/A, Colombo 12
       description: Human readable physical address of the receiver
     contactNo:
-      type: string
+      type: [ "string", "null" ]
       readOnly: true
       example: "0781231231"
       description: Mobile contact number of the receiver

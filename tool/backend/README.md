@@ -10,19 +10,52 @@ Before running the application, you must initialize the database schema and popu
 
 ## 2. Running the Application
 
-Once the database is seeded and the PostgreSQL instance is active, you can start the FastAPI server.
+There are two main ways to run this application: using Docker (Recommended) or running locally with `uv`.
 
-We use `uv` for dependency management. The following command will automatically create a virtual environment, install all dependencies listed in `pyproject.toml`, and start the development server:
+### A. Using Docker (Recommended)
+This method handles all dependencies and the local database automatically.
+
+1.  **Local Development**:
+    ```bash
+    docker compose up --build
+    ```
+    *This starts the backend with hot-reload enabled and a local PostgreSQL container.*
+
+2.  **Accessing the API**:
+    - **Local API:** [http://localhost:8000](http://localhost:8000)
+    - **API Documentation (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+### B. Running locally with `uv`
+If you prefer running without Docker, ensure you have a PostgreSQL instance running locally.
 
 ```bash
 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-After the server starts, you can access the following local endpoints:
-- **Local API:** [http://localhost:8000](http://localhost:8000)
-- **API Documentation (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+## 3. Testing
 
-## 3. Authentication & Authorization
+### A. Using Docker
+You can run the full test suite in an isolated container:
+```bash
+docker compose --profile test run --rm tests
+```
+
+### B. Running locally
+```bash
+uv run pytest
+```
+
+## 4. Production Deployment
+
+To run the application in a production-like environment with an **external cloud database**:
+
+1.  Ensure your production environment variables (or `.env` file) contain the correct `POSTGRES_HOST`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
+2.  Start the production container:
+    ```bash
+    docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d --build
+    ```
+
+## 5. Authentication & Authorization
 
 The API uses Asgardeo for OAuth2 authentication. You will need an access token to interact with protected endpoints.
 

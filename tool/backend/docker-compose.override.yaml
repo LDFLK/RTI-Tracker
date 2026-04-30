@@ -1,0 +1,38 @@
+# Development Override (Local Docker-managed DB)
+services:
+  # postgres database (Development only)
+  db:
+    image: postgres:15-alpine
+    container_name: rti-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rti}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rti}
+      POSTGRES_DB: ${POSTGRES_DB:-rti}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+      - postgres_data:/var/lib/postgresql/data
+
+  # fastapi server
+  server:
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_HOST=db:5432
+    depends_on:
+      db:
+        condition: service_healthy
+    # Development command with hot-reload enabled
+    command: uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+volumes:
+  postgres_data:
+

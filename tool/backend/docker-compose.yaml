@@ -1,22 +1,21 @@
-# docker compose yaml
-
-version: '3.8'
-
+# Base docker-compose.yaml (Common settings)
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: rti-db
-    restart: always
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rti}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rti}
-      POSTGRES_DB: ${POSTGRES_DB:-rti}
+  # fastapi server
+  server:
+    build: .
+    container_name: rti-backend
     ports:
-      - "5432:5432"
+      - "8000:8000"
+    env_file:
+      - .env
+    # NOTE: POSTGRES_HOST should be provided by environment or .env
+
+  tests:
+    build: .
+    container_name: rti-backend-tests 
+    profiles:
+      - test
     volumes:
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./sql/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql # <-- remove this db seed in production
-      - postgres_data:/var/lib/postgresql/data
+      - .:/app
+    command: uv run pytest
     
-volumes:
-  postgres_data:

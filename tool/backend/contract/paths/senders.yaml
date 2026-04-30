@@ -27,7 +27,7 @@
               name: John Doe
               email: example@gmail.com
               address: 123 Main St, Colombo 01
-              contact_no: "0771234567"
+              contactNo: "0771234567"
               createdAt: "2026-03-31T09:00:00Z"
               updatedAt: "2026-03-31T09:00:00Z"
       "401":
@@ -62,7 +62,7 @@
                   name: John Doe
                   email: example@gmail.com
                   address: 123 Main St, Colombo 01
-                  contact_no: "0771234567"
+                  contactNo: "0771234567"
                   createdAt: "2026-03-31T09:00:00Z"
                   updatedAt: "2026-03-31T09:00:00Z"
               pagination:
@@ -99,7 +99,7 @@
               name: John Doe
               email: example@gmail.com
               address: 123 Main St, Colombo 01
-              contact_no: "0771234567"
+              contactNo: "0771234567"
               createdAt: "2026-03-31T09:00:00Z"
               updatedAt: "2026-03-31T09:00:00Z"
       "401":
@@ -139,7 +139,7 @@
               name: John Doe
               email: example@gmail.com
               address: 123 Main St, Colombo 01
-              contact_no: "0771234567"
+              contactNo: "0771234567"
               createdAt: "2026-03-31T09:00:00Z"
               updatedAt: "2026-03-31T09:00:00Z"
       "401":

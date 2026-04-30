@@ -1,9 +1,12 @@
 import logging
 from src.models import PaginationModel
 from src.models.response_models import PositionListResponse, PositionResponse
+from src.models.request_models import PositionRequest
 from src.models.table_schemas import Position
-from src.core.exceptions import InternalServerException
+from src.core.exceptions import InternalServerException, NotFoundException, ConflictException
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, func
+from uuid import UUID, uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +19,7 @@ class PositionService:
         self.session = session
 
     # API
+    # get list of all positions
     def get_positions(
         self,
         *,
@@ -47,5 +51,123 @@ class PositionService:
                 pagination=pagination
             )
         except Exception as e:
-            logger.error(f"Error fetching positions: {e}")
-            raise InternalServerException("Failed to fetch positions from database.") from e
+            logger.error(f"[POSITION SERVICE] Error fetching positions: {e}")
+            raise InternalServerException(
+                "[POSITION SERVICE] Failed to fetch positions"
+            ) from e
+    
+    # get position by id
+    def get_position_by_id(self, *, position_id: UUID) -> PositionResponse:
+        try:
+            # fetch the record from the table
+            result = self.session.get(Position, position_id)
+
+            if result is None:
+                raise NotFoundException("Position not found")
+
+            return PositionResponse.model_validate(result)
+        except NotFoundException:
+            raise
+        except Exception as e:
+            logger.error(f"[POSITION SERVICE] Error getting position: {e}")
+            raise InternalServerException(
+                "[POSITION SERVICE] Failed to get position"
+            ) from e
+
+    # delete position
+    def delete_position(self, *, position_id: UUID) -> None:
+        try:
+            # fetch the record from the table
+            result = self.session.get(Position, position_id)
+
+            if result is None:
+                raise NotFoundException("Position not found")
+
+            # delete the record
+            self.session.delete(result)
+            self.session.commit()
+
+            return None
+        except IntegrityError as e:
+            self.session.rollback()
+            # detect foreign key constraint violation
+            logger.error(f"[POSITION SERVICE] Error deleting receiver: {e}")
+            raise ConflictException(
+                "Cannot delete position because it is used in some other records"
+            ) from e
+        except NotFoundException:
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[POSITION SERVICE] Error deleting position: {e}")
+            raise InternalServerException(
+                "[POSITION SERVICE] Failed to delete position"
+            ) from e  
+
+    # create position
+    def create_position(self, *, position_request: PositionRequest) -> PositionResponse:
+        try:
+            # generate a uuid
+            unique_id = uuid4()
+
+            # create position
+            position = Position(
+                id=unique_id,
+                name=position_request.name
+            )
+
+            self.session.add(position)
+            self.session.commit()
+            self.session.refresh(position)
+
+            return PositionResponse.model_validate(position)
+        except IntegrityError as e:
+            self.session.rollback()
+            error_msg = str(e.orig).lower()
+
+            if "positions_name_key" in error_msg or "unique constraint failed: positions.name" in error_msg:
+                raise ConflictException("Position name already exists")
+            else:
+                clean_error = error_msg.replace('\n', ' ').strip()
+                raise ConflictException(f"Database constraint violation: {clean_error}")
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[POSITION SERVICE] Error creating position: {e}")
+            raise InternalServerException(
+                "[POSITION SERVICE] Failed to create position"
+            ) from e
+    
+    # update position [PUT]
+    def update_position_put(self, *, position_id: UUID, position_request: PositionRequest) -> PositionResponse:
+        try:
+            # fetch the record from the table
+            result = self.session.get(Position, position_id)
+
+            if result is None:
+                raise NotFoundException("Position not found")
+
+            # update(PUT) the record
+            result.name = position_request.name
+
+            self.session.add(result)
+            self.session.commit()
+            self.session.refresh(result)
+
+            return PositionResponse.model_validate(result)
+        except IntegrityError as e:
+            self.session.rollback()
+            error_msg = str(e.orig).lower()
+
+            if "positions_name_key" in error_msg or "unique constraint failed: positions.name" in error_msg:
+                raise ConflictException("Position name already exists")
+            else:
+                clean_error = error_msg.replace('\n', ' ').strip()
+                raise ConflictException(f"Database constraint violation: {clean_error}")
+        except NotFoundException:
+            raise
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[POSITION SERVICE] Error updating position: {e}")
+            raise InternalServerException(
+                "[POSITION SERVICE] Failed to update position"
+            ) from e

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment Variables
+.env
+
+# Docker & Database
+postgres_data/
+
+# OS
+.DS_Store
+Thumbs.db

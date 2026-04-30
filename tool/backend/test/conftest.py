@@ -4,16 +4,16 @@ import uuid
 from aiohttp import ClientError
 from datetime import datetime, timezone, timedelta
 from sqlmodel import SQLModel, Session, create_engine
-from src.models import RTITemplate, Institution, Position
-from src.models.response_models import RTITemplateRequest
+from src.models import RTITemplate, Institution, Position, Receiver, ReceiverRequest, ReceiverUpdateRequest
+from src.models.request_models import RTITemplateRequest, PositionRequest
 from src.services.github_file_service import GithubFileService
 from fastapi import UploadFile
+from sqlalchemy import event
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
-from src.services.auth_service import AuthService
 from src.utils import http_client
-
+from src.models import Sender
 from src.models.response_models import SenderResponse
-from src.models.request_models import SenderRequest
+from src.models.request_models import SenderRequest, InstitutionRequest
 from src.services import SenderService
 
 
@@ -55,7 +55,7 @@ def patch_http_client_session():
 
 # fixtures for RTI Templates
 @pytest.fixture
-def in_memory_db():
+def rti_template_db():
     """Create an in-memory SQLite DB and provide a fresh session with test data."""
     engine = create_engine("sqlite:///:memory:")
     SQLModel.metadata.create_all(engine)
@@ -134,19 +134,39 @@ def make_file_service():
         relative_path: str = "rti-templates/test-uuid.md",
         absolute_path: str = "https://github.com/org/repo/blob/main/rti-templates/test-uuid.md",
         upload_side_effect=None,
+        update_side_effect=None,
         delete_return: bool = True,
     ) -> MagicMock:
         file_service = MagicMock()
+        
+        # mock create_file
         if upload_side_effect:
-            file_service.upload_file = AsyncMock(side_effect=upload_side_effect)
+            file_service.create_file = AsyncMock(side_effect=upload_side_effect)
         else:
-            file_service.upload_file = AsyncMock(
-                return_value={
-                    "relative_path": relative_path,
-                    "absolute_path": absolute_path,
-                }
-            )
+            file_service.create_file = AsyncMock(return_value={
+                "relative_path": relative_path,
+                "absolute_path": absolute_path,
+            })
+            
+        # mock update_file
+        if update_side_effect:
+            file_service.update_file = AsyncMock(side_effect=update_side_effect)
+        else:
+            file_service.update_file = AsyncMock(return_value={
+                "relative_path": relative_path,
+                "absolute_path": absolute_path,
+            })
+
         file_service.delete_file = AsyncMock(return_value=delete_return)
+        
+        # mock read_file
+        file_service.read_file = AsyncMock(return_value={
+            "content": b"# Old Content",
+            "sha": "old-sha"
+        })
+        
+        # remove restore_file/recreate_file mocks since they are deleted
+
         return file_service
 
     return _factory
@@ -159,6 +179,7 @@ def make_template_request():
     def _factory(
         title: str = "Test Template",
         description: str = "A test description",
+        id: str = None
     ) -> MagicMock:
         mock_upload = AsyncMock()
         mock_upload.content_type = "text/markdown"
@@ -166,11 +187,26 @@ def make_template_request():
         mock_upload.read = AsyncMock(return_value=b"# Test")
 
         request = MagicMock(spec=RTITemplateRequest)
+        request.id = id
         request.title = title
         request.description = description
         request.file = mock_upload
         return request
 
+    return _factory
+
+# institutions fixures
+@pytest.fixture
+def make_institution_request():
+    """Returns a factory for mock InstitutionRequest instance"""
+
+    def _factory(
+        name: str = "Test Institution"
+    ) -> MagicMock:
+        request = MagicMock(spec=InstitutionRequest)
+        request.name = name 
+        return request
+    
     return _factory
 
 @pytest.fixture
@@ -243,7 +279,102 @@ def position_db():
         # but for tests we often just want the session.
         yield session
 
+
+# receiver fixtures
+@pytest.fixture
+def receiver_db():
+    """Create an in-memory SQLite DB and provide a fresh session with test receivers."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    SQLModel.metadata.create_all(engine)
+    now = datetime.now(timezone.utc)
+    
+    pos1 = Position(id=uuid.uuid4(), name="Position 1", created_at=now, updated_at=now)
+    inst1 = Institution(id=uuid.uuid4(), name="Institution 1", created_at=now, updated_at=now)
+
+    receivers = [
+        Receiver(
+            id=uuid.uuid4(),
+            position=pos1,
+            institution=inst1,
+            email="receiver1@example.com",
+            created_at=now - timedelta(hours=2),
+            updated_at=now - timedelta(hours=2),
+        ),
+        Receiver(
+            id=uuid.uuid4(),
+            position=pos1,
+            institution=inst1,
+            email="receiver2@example.com",
+            created_at=now - timedelta(hours=1),
+            updated_at=now - timedelta(hours=1),
+        ),
+        Receiver(
+            id=uuid.uuid4(),
+            position=pos1,
+            institution=inst1,
+            email="receiver3@example.com",
+            created_at=now,
+            updated_at=now,
+        ),
+    ]
+    
+    with Session(engine) as session:
+        session.add(pos1)
+        session.add(inst1)
+        session.add_all(receivers)
+        session.commit()
+        yield session
+
+@pytest.fixture
+def make_receiver_request():
+    """Factory for ReceiverRequest instances."""
+
+    def _factory(
+        position_id: uuid.UUID,
+        institution_id: uuid.UUID,
+        email: str | None = "new@example.com",
+        address: str | None = "New Address",
+        contact_no: str | None = "0771234568",
+    ) -> ReceiverRequest:
+        return ReceiverRequest(
+            positionId=position_id,
+            institutionId=institution_id,
+            email=email,
+            address=address,
+            contactNo=contact_no
+        )
+
+    return _factory
+
+@pytest.fixture
+def make_receiver_update_request():
+    """Factory for ReceiverUpdateRequest instances."""
+
+    def _factory(
+        position_id: uuid.UUID | None = None,
+        institution_id: uuid.UUID | None = None,
+        email: str | None = None,
+        address: str | None = None,
+        contact_no: str | None = None,
+    ) -> ReceiverUpdateRequest:
+        # Use dict and then parse to handle exclude_unset=True in model_dump
+        data = {}
+        if position_id is not None: data["positionId"] = position_id
+        if institution_id is not None: data["institutionId"] = institution_id
+        if email is not None: data["email"] = email
+        if address is not None: data["address"] = address
+        if contact_no is not None: data["contactNo"] = contact_no
+        
+        return ReceiverUpdateRequest(**data)
+
+    return _factory
 
 # sender fixtures 
 @pytest.fixture
@@ -286,6 +417,58 @@ def make_sender_response():
 
     return _factory
 
+@pytest.fixture
+def sender_db():
+    """In-memory DB seeded with three Sender rows for service-level tests."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    now = datetime.now(timezone.utc)
+
+    senders = [
+        Sender(
+            id=uuid.uuid4(),
+            name="Alice",
+            email="alice@example.com",
+            address="1 Alpha St",
+            contact_no=None,
+            created_at=now - timedelta(hours=2),
+            updated_at=now - timedelta(hours=2),
+        ),
+        Sender(
+            id=uuid.uuid4(),
+            name="Bob",
+            email=None,
+            address="2 Beta Ave",
+            contact_no="0771111111",
+            created_at=now - timedelta(hours=1),
+            updated_at=now - timedelta(hours=1),
+        ),
+        Sender(
+            id=uuid.uuid4(),
+            name="Carol",
+            email="carol@example.com",
+            address=None,
+            contact_no="0772222222",
+            created_at=now,
+            updated_at=now,
+        ),
+    ]
+
+    with Session(engine) as session:
+        session.add_all(senders)
+        session.commit()
+        yield session
+
+@pytest.fixture
+def make_position_request():
+    """Factory for PositionRequest instances."""
+
+    def _factory(name: str = "Test Position") -> MagicMock:
+        request = MagicMock(spec=PositionRequest)
+        request.name = name
+        return request
+
+    return _factory
 
 @pytest.fixture
 def mock_sender_service():

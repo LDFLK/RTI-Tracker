@@ -1,0 +1,10 @@
+# Production docker-compose.prod.yaml
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+services:
+  # fastapi server
+  server:
+    restart: always
+    # Prod command (no reload, optimized for performance)
+    command: ["uv","run","uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--timeout-keep-alive", "75", "--backlog", "2048"]
+
+

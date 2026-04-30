@@ -1,5 +1,13 @@
 import asyncio
 import logging
+from src.utils.http_client import http_client
+from src.routers import (
+    institution_router,
+    position_router,
+    receiver_router,  
+    rti_template_router,
+    sender_router
+)
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -112,5 +120,6 @@ app.include_router(rti_template_router)
 app.include_router(institution_router)
 app.include_router(position_router)
 app.include_router(sender_router)
+app.include_router(receiver_router)
 app.add_exception_handler(BaseAPIException, api_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)

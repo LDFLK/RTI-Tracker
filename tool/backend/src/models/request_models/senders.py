@@ -14,7 +14,7 @@ class SenderRequest(BaseModel):
         None, json_schema_extra={"example":"123 Main St, Colombo 01"}, description="Address of the sender."
     )
     contact_no: Optional[str] = Field(
-        None, pattern=r"^\+?\d{10,15}$", json_schema_extra={"example":"0771234567"}, description="Contact number of the sender."
+        None, pattern=r"^(?:\+94|0)\d{9}$", serialization_alias="contactNo", json_schema_extra={"example":"0771234567"}, description="Contact number of the sender."
     )
 
     # either email or contact_no must be provided
