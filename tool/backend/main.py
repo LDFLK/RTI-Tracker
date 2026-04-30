@@ -20,39 +20,78 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = settings.MAX_RETRIES
 RETRY_DELAY = settings.RETRY_DELAY  #seconds
 
+# Helper Functions
 # synchronous(blocking) db ping helper
 def ping_db():
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
 
+def _safe_dispose_engine():
+    """Attempts to dispose the DB engine, logs full trace on failure."""
+    try:
+        engine.dispose()
+    except Exception:
+        logger.exception("Teardown Error: Failed to cleanly dispose DB engine")
+
+async def _safe_close_http_client():
+    """Attempts to close HTTP client, logs full trace on failure."""
+    try:
+        await http_client.close()
+    except Exception:
+        logger.exception("Teardown Error: Failed to close HTTP client")
+
+    
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Lifespan connection starting...")
+    http_client_started = False
     
-    # bounded-retry loop for pinging the db
-    for attempt in range(1, MAX_RETRIES + 1):
+    # DB connectivity check
+    try:
+        
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                # run in threadpool to avoid blocking
+                await asyncio.to_thread(ping_db)
+                logger.info("Database connection successful!")
+                # exit retry loop and continue startup on success
+                break
+            
+            except Exception as e:
+                
+                if attempt == MAX_RETRIES:
+                    logger.critical("All DB connection attempts failed. Exiting.", exc_info=True)
+                    # Copilot: Exception chaining (from e) preserves original stack trace
+                    raise RuntimeError("Cannot connect to database. Aborting startup.") from e
+                else:
+                    logger.warning( "DB connection attempt %s/%s failed",
+                                attempt,
+                                MAX_RETRIES,
+                                exc_info=True
+                            )
+                    
+                # delay for the next poll
+                await asyncio.sleep(RETRY_DELAY)
+        
+    # http client startup check  
         try:
-            # run in threadpool to avoid blocking 
-            await asyncio.to_thread(ping_db)
-            logger.info("Database connection successful!")
-            # exit retry loop and continue startup on success
-            break
-        except Exception as e:
-            logger.warning(f"DB connection attempt {attempt}/{MAX_RETRIES} failed: {e}")
-
-            if attempt == MAX_RETRIES:
-                logger.critical("All DB connection attempts failed. Exiting.",exc_info=True)
-                raise RuntimeError("Cannot connect to database. Aborting startup.")
-            # delay for the next poll
-            await asyncio.sleep(RETRY_DELAY)
-    
-    await http_client.start()
-    
-    yield
-    engine.dispose()
-    
-    await http_client.close()
-    logger.info("Lifespan connection ending...")
+            await http_client.start()
+            http_client_started=True
+        except Exception :
+            logger.exception( "http client failed to start ")
+            raise 
+            
+            
+        yield
+        
+    finally:
+        if http_client_started:
+            await _safe_close_http_client()
+        
+        _safe_dispose_engine()
+        
+        
+        logger.info("Lifespan connection ending...")
 
 app = FastAPI(
     title="RTI Tracker",

@@ -1,4 +1,5 @@
 from pydantic_settings import SettingsConfigDict, BaseSettings
+from pydantic import Field
 
 class Settings(BaseSettings):
     
@@ -12,8 +13,8 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     
     # database bounded-retry
-    MAX_RETRIES:int=5
-    RETRY_DELAY:int=3  #in seconds
+    MAX_RETRIES: int = Field(default=5, ge=1) # must >=1 second
+    RETRY_DELAY: int = Field(default=3, ge=0)  # must >= 0 second
 
     # asgardio configuration
     ASGARDEO_ORG: str
