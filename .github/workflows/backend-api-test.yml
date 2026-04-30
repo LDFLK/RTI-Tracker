@@ -1,0 +1,45 @@
+name: BACKEND - API Service Test
+
+on:
+  push:
+    branches:
+      - main
+      - workflow-github
+  pull_request:
+    branches:
+      - main
+      - workflow-github
+
+jobs:
+  backend-api-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tool/backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        env:
+          ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
+          POSTGRES_HOST: localhost:5432
+          POSTGRES_USER: rti
+          POSTGRES_PASSWORD: rti
+          POSTGRES_DB: rti
+          ASGARDEO_ORG: test_org
+          CLIENT_ID: test_client_id
+          CLIENT_SECRET: test_client_secret
+          GITHUB_TOKEN: test_personal_access_token
+          GITHUB_REPO_NAME: test_repository_name
+          GITHUB_BRANCH: test_branch_name
+
+        run: uv run pytest

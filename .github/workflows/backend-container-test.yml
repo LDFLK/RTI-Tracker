@@ -1,0 +1,97 @@
+name: BACKEND - Container Test
+
+on:
+    push:
+        branches:
+            - main
+            - workflow-github
+    pull_request:
+        branches:
+            - main
+            - workflow-github
+
+jobs:
+    backend-container-test:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: tool/backend
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Build docker image
+              run: |
+                  docker build -t server .
+                  docker images | grep server || (echo "Image build failed" && exit 1)
+
+            - name: Run docker container
+              run: |
+                  # run docker container
+                  docker run -d --name server \
+                    -e ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000 \
+                    -e POSTGRES_HOST=localhost:5432 \
+                    -e POSTGRES_USER=rti \
+                    -e POSTGRES_PASSWORD=rti \
+                    -e POSTGRES_DB=rti \
+                    -e ASGARDEO_ORG=test_org \
+                    -e CLIENT_ID=test_client_id \
+                    -e CLIENT_SECRET=test_client_secret \
+                    -e GITHUB_TOKEN=test_personal_access_token \
+                    -e GITHUB_REPO_NAME=test_repository_name \
+                    -e GITHUB_BRANCH=test_branch_name \
+                    server
+
+                  # wait for 3 seconds
+                  sleep 3
+
+                  if [ "$(docker inspect -f '{{.State.Running}}' server)" == "true" ]; then
+                    echo "Success: Container is running..."
+                  else 
+                    echo "Error: Container crashed, showing logs below:"
+                    docker logs server
+                    exit 1
+                  fi  
+
+            - name: Verify container health
+              run: |
+                  sleep 5
+                  docker ps | grep server | grep -q "Up" || (echo "Container is not healthy" && exit 1)
+                  echo "Container is running successfully..."
+
+            - name: Stop docker container
+              run: |
+                  docker stop server
+
+                  if [ "$(docker inspect -f '{{.State.Status}}' server)" == "exited" ]; then
+                    echo "Success: Container stopped!"
+                  else
+                    echo "Error: Container stop failed, showing logs below:"
+                    docker logs server
+                    exit 1
+                  fi
+
+            - name: Remove docker container
+              run: |
+                  docker rm -f server || true 
+
+                  # Check if the container ID still exists
+                  if [ -z "$(docker ps -aq -f name=^server$)" ]; then
+                    echo "Container removed successfully"
+                  else
+                    echo "Container removal failed"
+                    exit 1
+                  fi
+
+            - name: Remove docker image
+              run: |
+                  docker rmi -f server || true 
+
+                  # Check if the image still exists 
+                  if [ -z "$(docker images -q --filter "reference=server")" ]; then
+                    echo "Image removed successfully"
+                  else
+                    echo "Image removal failed"
+                    docker images
+                    exit 1
+                  fi
