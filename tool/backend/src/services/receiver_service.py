@@ -77,7 +77,7 @@ class ReceiverService:
             pagination = PaginationModel(
                 page=page,
                 pageSize=page_size,
-                totalItem=total_items,
+                totalItems=total_items,
                 totalPages=(total_items + page_size - 1) // page_size if total_items > 0 else 0
             )
             

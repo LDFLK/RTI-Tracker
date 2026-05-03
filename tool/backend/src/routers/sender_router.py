@@ -23,7 +23,7 @@ def create_sender_endpoint(
 @router.get("/senders", response_model=SenderListResponse)
 def get_sender_list_endpoint(
     page: int = Query(1, ge=1, description="page number"),
-    page_size: int = Query(10, ge=1, le=100, description="page size"),
+    page_size: int = Query(10, ge=1, le=100, alias="pageSize", description="page size"),
     service: SenderService = Depends(get_sender_service),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
 ):

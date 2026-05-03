@@ -225,7 +225,7 @@ def test_get_sender_list_pagination_total_items(sender_db):
     service = SenderService(session=sender_db)
     result = service.get_sender_list(page=1, page_size=10)
 
-    assert result.pagination.totalItem == 3
+    assert result.pagination.totalItems == 3
 
 
 def test_get_sender_list_pagination_total_pages(sender_db):
@@ -281,7 +281,7 @@ def test_get_sender_list_empty_db_returns_empty_data():
         result = service.get_sender_list()
 
     assert len(result.data) == 0
-    assert result.pagination.totalItem == 0
+    assert result.pagination.totalItems == 0
     assert result.pagination.totalPages == 0
 
 

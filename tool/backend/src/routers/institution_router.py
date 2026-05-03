@@ -18,7 +18,7 @@ def get_institution_service(session: SessionDep):
 @router.get("/institutions", response_model=InstitutionListResponse)
 def get_institutions_endpoint(
     page: int = Query(1, ge=1, description="page number"),
-    page_size: int = Query(10, ge=1, le=100, description="page size"),
+    page_size: int = Query(10, ge=1, le=100, alias="pageSize", description="page size"),
     service: InstitutionService = Depends(get_institution_service),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
     ):

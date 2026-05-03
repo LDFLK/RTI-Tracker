@@ -25,7 +25,7 @@ def test_get_positions_default(position_db):
     assert isinstance(response, PositionListResponse)
     assert response.pagination.page == 1
     assert response.pagination.pageSize == 10
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 1
     assert len(response.data) == 3
     assert response.data[0].name == "Position 3"
@@ -40,7 +40,7 @@ def test_get_positions_custom_pagination(position_db):
 
     assert response.pagination.page == 2
     assert response.pagination.pageSize == 2
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 2
     assert len(response.data) == 1
 
@@ -53,7 +53,7 @@ def test_get_positions_empty_db():
         service = PositionService(session=session)
         response = service.get_positions()
 
-        assert response.pagination.totalItem == 0
+        assert response.pagination.totalItems == 0
         assert response.pagination.totalPages == 0
         assert response.data == []
 

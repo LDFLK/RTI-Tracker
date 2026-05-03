@@ -18,7 +18,7 @@ async def test_get_rti_templates_default(rti_template_db, make_file_service):
     
     assert response.pagination.page == 1
     assert response.pagination.pageSize == 10
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 1
     assert len(response.data) == 3
 
@@ -31,7 +31,7 @@ async def test_get_rti_templates_custom_page(rti_template_db, make_file_service)
     
     assert response.pagination.page == 2
     assert response.pagination.pageSize == 2
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 2
     assert len(response.data) == 1  # Only one record left on page 2
 
@@ -47,7 +47,7 @@ async def test_get_rti_templates_empty_db(make_file_service):
         response = service.get_rti_templates()
         
         assert response.pagination.page == 1
-        assert response.pagination.totalItem == 0
+        assert response.pagination.totalItems == 0
         assert response.pagination.totalPages == 0
         assert response.data == []
 

@@ -18,7 +18,7 @@ def test_get_institutions_default(institution_db):
     assert isinstance(response, InstitutionListResponse)
     assert response.pagination.page == 1
     assert response.pagination.pageSize == 10
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 1
     assert len(response.data) == 3
     # verify sorting order (descending by created_at)
@@ -34,7 +34,7 @@ def test_get_institutions_custom_pagination(institution_db):
     
     assert response.pagination.page == 2
     assert response.pagination.pageSize == 2
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 2
     assert len(response.data) == 1  # Only 1 record left for page 2
 
@@ -46,7 +46,7 @@ def test_get_institutions_empty_db():
         service = InstitutionService(session=session)
         response = service.get_institutions()
         
-        assert response.pagination.totalItem == 0
+        assert response.pagination.totalItems == 0
         assert response.pagination.totalPages == 0
         assert response.data == []
 

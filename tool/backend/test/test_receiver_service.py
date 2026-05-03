@@ -16,7 +16,7 @@ def test_get_receivers_default(receiver_db):
     assert isinstance(response, ReceiverListResponse)
     assert response.pagination.page == 1
     assert response.pagination.pageSize == 10
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 1
     assert len(response.data) == 3
     # verify sorting order (descending by created_at)
@@ -36,7 +36,7 @@ def test_get_receivers_custom_pagination(receiver_db):
     
     assert response.pagination.page == 2
     assert response.pagination.pageSize == 2
-    assert response.pagination.totalItem == 3
+    assert response.pagination.totalItems == 3
     assert response.pagination.totalPages == 2
     assert len(response.data) == 1  # Only 1 record left for page 2
     assert response.data[0].email == "receiver1@example.com"
@@ -49,7 +49,7 @@ def test_get_receivers_empty_db():
         service = ReceiverService(session=session)
         response = service.get_receivers()
         
-        assert response.pagination.totalItem == 0
+        assert response.pagination.totalItems == 0
         assert response.pagination.totalPages == 0
         assert response.data == []
 

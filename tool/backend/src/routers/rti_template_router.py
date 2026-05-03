@@ -18,7 +18,7 @@ def get_rti_template_service(session: SessionDep, file_service: GithubFileServic
 @router.get("/rti_templates", response_model=RTITemplateListResponse)
 async def get_rti_templates_endpoint(
     page: int = Query(1, ge=1, description="page number"),
-    page_size: int = Query(10, ge=1, le=100, description="page size"),
+    page_size: int = Query(10, ge=1, le=100, alias="pageSize", description="page size"),
     service: RTITemplateService = Depends(get_rti_template_service),
     user: User = Depends(RoleChecker([UserRole.ADMIN, UserRole.USER]))
     ):
