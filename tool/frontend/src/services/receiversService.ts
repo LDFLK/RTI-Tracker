@@ -12,8 +12,8 @@ export const receiversService = {
     if (search) {
       const q = search.toLowerCase();
       filtered = filtered.filter(r =>
-        r.institutionName?.toLowerCase().includes(q) ||
-        r.positionName?.toLowerCase().includes(q) ||
+        r.institution?.name?.toLowerCase().includes(q) ||
+        r.position?.name?.toLowerCase().includes(q) ||
         r.email?.toLowerCase().includes(q) ||
         r.address?.toLowerCase().includes(q) ||
         r.contactNo?.toLowerCase().includes(q)
@@ -33,7 +33,7 @@ export const receiversService = {
     };
   },
 
-  async createReceiver(payload: Partial<Receiver>) {
+  async createReceiver(payload: { institutionId?: string, positionId?: string, email?: string | null, contactNo?: string | null, address?: string | null }) {
     await sleep();
 
     const inst = db.institutions.find(i => i.id === payload.institutionId);
@@ -41,13 +41,11 @@ export const receiversService = {
 
     const newReceiver: Receiver = {
       id: 'rec-' + crypto.randomUUID(),
-      institutionId: payload.institutionId!,
-      positionId: payload.positionId!,
+      institution: inst!,
+      position: pos!,
       email: payload.email || null,
       contactNo: payload.contactNo || null,
       address: payload.address || null,
-      institutionName: inst?.name,
-      positionName: pos?.name,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -55,7 +53,7 @@ export const receiversService = {
     return newReceiver;
   },
 
-  async updateReceiver(id: string, payload: Partial<Receiver>) {
+  async updateReceiver(id: string, payload: { institutionId?: string, positionId?: string, email?: string | null, contactNo?: string | null, address?: string | null }) {
     await sleep();
 
     const inst = db.institutions.find(i => i.id === payload.institutionId);
@@ -64,9 +62,11 @@ export const receiversService = {
     db.setReceivers(db.receivers.map(r =>
       r.id === id ? {
         ...r,
-        ...payload,
-        institutionName: inst?.name || r.institutionName,
-        positionName: pos?.name || r.positionName,
+        email: payload.email !== undefined ? payload.email : r.email,
+        contactNo: payload.contactNo !== undefined ? payload.contactNo : r.contactNo,
+        address: payload.address !== undefined ? payload.address : r.address,
+        institution: inst || r.institution,
+        position: pos || r.position,
         updatedAt: new Date()
       } : r
     ));

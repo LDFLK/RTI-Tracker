@@ -3,9 +3,11 @@ import { templateService } from '../services/templateService';
 import { Template } from '../types/rti';
 import { Button } from '../components/Button';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Save, Plus, Move, Trash2, Bold, Italic, Heading1, Heading2, Type } from 'lucide-react';
+import { Save, Plus, Move, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Pagination } from '../components/Pagination';
+import { SmartEditor, SmartEditorRef } from '../components/SmartEditor';
+import { RTI_VARIABLES } from '../utils/variableUtils';
 
 export function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -14,7 +16,7 @@ export function Templates() {
   const [templateToDelete, setTemplateToDelete] = useState<{ id: string, title: string } | null>(null);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
 
-  const editorRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<SmartEditorRef>(null);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -45,81 +47,6 @@ export function Templates() {
     fetchTemplates(1);
   }, []);
 
-  const variables = [
-    { name: 'Date', code: '{{date}}', desc: 'Current Date' },
-    { name: 'Sender Name', code: '{{sender_name}}', desc: 'Applicant Name' },
-    { name: 'Sender Email', code: '{{sender_email}}', desc: 'Applicant Email' },
-    { name: 'Sender Address', code: '{{sender_address}}', desc: 'Applicant Address' },
-    { name: 'Sender Contact No', code: '{{sender_contact_no}}', desc: 'Applicant Contact No' },
-    { name: 'Receiver Institution', code: '{{receiver_institution}}', desc: 'Target Institution' },
-    { name: 'Receiver Position', code: '{{receiver_position}}', desc: 'Target Position' },
-    { name: 'Receiver Email', code: '{{receiver_email}}', desc: 'Receiver Email' },
-    { name: 'Receiver Address', code: '{{receiver_address}}', desc: 'Receiver Address' },
-    { name: 'Receiver Contact No', code: '{{receiver_contact_no}}', desc: 'Receiver Contact No' },
-  ];
-
-  // Helper to create a pill element
-  const createPillHtml = (code: string, name: string) => {
-    return `<span class="pill-chip inline-flex items-center gap-1 pl-2 pr-1 py-0.5 border border-blue-200 rounded mx-0.5 bg-blue-100 text-blue-800 text-xs font-semibold align-baseline cursor-default select-none" data-code="${code}" contenteditable="false">${name}<span class="pill-remove hover:bg-blue-300 rounded px-1 cursor-pointer opacity-80 hover:opacity-100 transition-opacity flex items-center justify-center font-bold ml-0.5" onclick="this.parentElement.remove()">×</span></span>`;
-  };
-
-  // Convert Markdown to HTML with pills and formatting
-  const parseMarkdownToHtml = (markdown: string) => {
-    let html = markdown || '';
-
-    // 1. Handle Bold & Italic
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); // double asterik bold
-    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>'); // single asterik italic
-    html = html.replace(/(?<!_|\{)_([^_\{}]+)_(?!_|\})/g, '<em>$1</em>'); // underscore italic
-
-    // 2. Handle variables (pills)
-    html = html.replace(/{{([^}]+)}}/g, (match, p1) => {
-      const formatted = p1.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-      return createPillHtml(match, formatted);
-    });
-
-    // 3. Handle lines and headings
-    html = html.split('\n').map(line => {
-      if (line.startsWith('# ')) return `<h1>${line.slice(2)}</h1>`;
-      if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`;
-      return line ? `<div>${line}</div>` : `<div><br></div>`;
-    }).join('');
-
-    return html;
-  };
-
-  // Convert HTML back to Markdown
-  const serializeHtmlToMarkdown = (html: string) => {
-    let cleanHtml = html.replace(/<br\s*\/?>/gi, '\n'); // Convert brs to \n
-
-    cleanHtml = cleanHtml.replace(/<div[^>]*>/gi, '\n'); // Convert opening divs to a newline
-    cleanHtml = cleanHtml.replace(/<\/div>/gi, ''); // Erase closing divs
-    cleanHtml = cleanHtml.replace(/<p[^>]*>/gi, '\n'); // Convert opening paragraphs to a newline
-    cleanHtml = cleanHtml.replace(/<\/p>/gi, ''); // Erase closing paragraphs
-
-    cleanHtml = cleanHtml.replace(/<h1[^>]*>/gi, '\n# '); // Convert Heading 1 into a newline + markdown '# '
-    cleanHtml = cleanHtml.replace(/<\/h1>/gi, ''); // Erase closing h1
-    cleanHtml = cleanHtml.replace(/<h2[^>]*>/gi, '\n## '); // Convert Heading 2 into a newline + markdown '## '
-    cleanHtml = cleanHtml.replace(/<\/h2>/gi, ''); // Erase closing h2
-
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = cleanHtml;
-
-    const pills = tempDiv.querySelectorAll('.pill-chip');
-    pills.forEach((pill) => {
-      const code = pill.getAttribute('data-code');
-      pill.replaceWith(code || '');
-    });
-
-    const bolds = tempDiv.querySelectorAll('strong, b');
-    bolds.forEach(bold => bold.replaceWith(`**${bold.textContent}**`));
-
-    const italics = tempDiv.querySelectorAll('em, i');
-    italics.forEach(italic => italic.replaceWith(`*${italic.textContent}*`));
-
-    let text = tempDiv.textContent || '';
-    return text.replace(/\n{3,}/g, '\n\n').trim();
-  };
 
   // Sync editor when template changes
   useEffect(() => {
@@ -127,17 +54,16 @@ export function Templates() {
       if (selectedTemplate) {
         let content = selectedTemplate.content;
 
-        // load the file content from the URL if haven't already fetched it
+        // load the file content from the service if haven't already fetched it
         if (content === undefined && selectedTemplate.file) {
           try {
-            const res = await fetch(selectedTemplate.file);
-            content = await res.text();
+            content = await templateService.getTemplateContent(selectedTemplate.file);
 
-            // Cache the downloaded text back into the templates array so we don't fetch it again
             setTemplates(prev => prev.map(t =>
               t.id === selectedTemplate.id ? { ...t, content: content } : t
             ));
-            selectedTemplate.content = content; // update local pointer instantly
+
+            setSelectedTemplate(prev => prev && prev.id === selectedTemplate.id ? { ...prev, content } : prev);
           } catch (e) {
             console.error("Failed to load file content:", e);
             content = '';
@@ -145,17 +71,19 @@ export function Templates() {
         }
 
         if (editorRef.current && content !== undefined) {
-          editorRef.current.innerHTML = parseMarkdownToHtml(content || '');
+          editorRef.current.setMarkdown(content || '');
         }
         setEditedName(selectedTemplate.title);
       }
     };
     loadContent();
-  }, [selectedTemplate]);
+  }, [selectedTemplate?.id]);
+
 
   const handleSelect = (template: Template | null) => {
     setSelectedTemplate(template);
   };
+
 
   const addNewTemplate = () => {
     const newTemplate: Template = {
@@ -173,7 +101,7 @@ export function Templates() {
 
   const saveTemplate = async () => {
     if (!editorRef.current || !selectedTemplate) return;
-    const markdown = serializeHtmlToMarkdown(editorRef.current.innerHTML);
+    const markdown = editorRef.current.getMarkdown();
 
     const isNew = selectedTemplate.id.startsWith('new-');
 
@@ -244,90 +172,8 @@ export function Templates() {
     e.dataTransfer.setData('application/json', JSON.stringify(variable));
   };
 
-  const insertHtmlAtSelection = (html: string, selection: Selection | null) => {
-    if (!selection || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-
-    // Check if the user dropped inside an existing pill
-    let container = range.startContainer;
-    if (container.nodeType === Node.TEXT_NODE) {
-      container = container.parentNode as Element;
-    }
-    const closestPill = (container as Element)?.closest?.('.pill-chip');
-    if (closestPill) {
-      range.setStartAfter(closestPill);
-      range.collapse(true);
-    }
-
-    // Create a temporary container for our new HTML
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-
-    const fragment = document.createDocumentFragment();
-    let node;
-    while ((node = tempDiv.firstChild)) {
-      fragment.appendChild(node);
-    }
-
-    // Make sure we have a text node (an invisible zero-width character) to place the cursor onto
-    const spaceNode = document.createTextNode('\u200B');
-    fragment.appendChild(spaceNode);
-
-    range.deleteContents(); // Deletes any text the user currently has highlighted
-    range.insertNode(fragment);// Inserts the new variable
-
-    // Force the cursor position right after the space node
-    range.setStartAfter(spaceNode);
-    range.setEndAfter(spaceNode);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const data = e.dataTransfer.getData('application/json');
-    if (!data) return;
-
-    const variable = JSON.parse(data);
-    const pillHtml = createPillHtml(variable.code, variable.name);
-
-    let range: Range | null = null;
-
-    // Use standard caretPositionFromPoint if available (Firefox)
-    // @ts-ignore - Type definitions might not include this yet
-    if (document.caretPositionFromPoint) {
-      // @ts-ignore
-      const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-      if (pos) {
-        range = document.createRange();
-        range.setStart(pos.offsetNode, pos.offset);
-        range.collapse(true);
-      }
-    }
-    // Fallback to older webkit/blink way (Chrome/Edge/Safari)
-    // @ts-ignore
-    else if (document.caretRangeFromPoint) {
-      // @ts-ignore
-      range = document.caretRangeFromPoint(e.clientX, e.clientY);
-    }
-
-    if (range) {
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      insertHtmlAtSelection(pillHtml, window.getSelection());
-    }
-  };
-
   const insertVariableAtCursor = (variable: any) => {
-    const pillHtml = createPillHtml(variable.code, variable.name);
-    editorRef.current?.focus();
-    insertHtmlAtSelection(pillHtml, window.getSelection());
-  };
-
-  const applyFormat = (command: string, value: string | undefined = undefined) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
+    editorRef.current?.insertVariable(variable.code, variable.name);
   };
 
   return (
@@ -421,62 +267,13 @@ export function Templates() {
                 </Button>
               </div>
 
-              <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50">
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => applyFormat('bold')}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-                  title="Bold"
-                >
-                  <Bold className="w-4 h-4" />
-                </button>
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => applyFormat('italic')}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all flex items-center gap-1"
-                  title="Italic"
-                >
-                  <Italic className="w-4 h-4" />
-                </button>
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => applyFormat('formatBlock', 'h1')}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all flex items-center gap-1"
-                  title="Heading 1"
-                >
-                  <Heading1 className="w-5 h-5" />
-                </button>
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => applyFormat('formatBlock', 'h2')}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all flex items-center gap-1"
-                  title="Heading 2"
-                >
-                  <Heading2 className="w-4 h-4" />
-                </button>
-                <button
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => applyFormat('formatBlock', 'p')}
-                  className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all flex items-center gap-1"
-                  title="Normal Text"
-                >
-                  <Type className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div
+              <SmartEditor
                 ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onDrop={onDrop}
-                onDragOver={(e) => e.preventDefault()}
-                className="flex-1 p-8 bg-white overflow-y-auto outline-none text-[16px] text-gray-800 leading-relaxed white-space-pre-wrap cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:pointer-events-none empty:before:italic [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800 [&_strong]:font-bold [&_em]:italic [&_i]:italic"
-                style={{ whiteSpace: 'pre-wrap' }}
-                data-placeholder="Start typing your template here..."
-                data-gramm="false"
-                data-gramm_editor="false"
-                data-enable-grammarly="false"
+                initialMarkdown={selectedTemplate.content}
+                placeholderText="Start typing your template here..."
+                className="flex-1"
               />
+
             </>
           ) : isLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gray-50/50">
@@ -507,7 +304,7 @@ export function Templates() {
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {variables.map((v) => (
+              {RTI_VARIABLES.map((v) => (
                 <div
                   key={v.name}
                   draggable

@@ -13,6 +13,7 @@ interface SearchableSelectProps {
   placeholder: string;
   onAddSpecial?: (query: string) => void;
   addLabel?: string;
+  onSearchChange?: (query: string) => void;
 }
 
 export function SearchableSelect({
@@ -21,7 +22,8 @@ export function SearchableSelect({
   options,
   placeholder,
   onAddSpecial,
-  addLabel
+  addLabel,
+  onSearchChange
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -38,10 +40,20 @@ export function SearchableSelect({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(o => o.id === value);
-  const filtered = options.filter(o => 
-    o.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const [cachedSelectedOption, setCachedSelectedOption] = useState<Option | null>(null);
+
+  useEffect(() => {
+    const found = options.find(o => o.id === value);
+    if (found) {
+      setCachedSelectedOption(found);
+    }
+  }, [value, options]);
+
+  const selectedOption = options.find(o => o.id === value) || cachedSelectedOption;
+  
+  const filtered = onSearchChange 
+    ? options 
+    : options.filter(o => o.name.toLowerCase().includes(query.toLowerCase()));
 
   const handleSelect = (id: string) => {
     onChange(id);
@@ -76,7 +88,9 @@ export function SearchableSelect({
             setIsOpen(true);
           }}
           onChange={(e) => {
-            setQuery(e.target.value);
+            const val = e.target.value;
+            setQuery(val);
+            if (onSearchChange) onSearchChange(val);
             if (!isOpen) setIsOpen(true);
           }}
           placeholder={placeholder}

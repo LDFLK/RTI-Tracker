@@ -93,8 +93,8 @@ export function Receivers() {
 
   // Column Definitions
   const receiverColumns: Column<Receiver>[] = useMemo(() => [
-    { header: 'Institution', accessor: 'institutionName', className: 'font-medium text-gray-900' },
-    { header: 'Position', accessor: 'positionName', className: 'text-gray-700' },
+    { header: 'Institution', render: (r: Receiver) => r.institution?.name, className: 'font-medium text-gray-900' },
+    { header: 'Position', render: (r: Receiver) => r.position?.name, className: 'text-gray-700' },
     { header: 'Email', accessor: 'email', className: 'text-gray-600' },
     { header: 'Contact No', accessor: 'contactNo', className: 'text-gray-600' },
     { header: 'Address', accessor: 'address', className: 'text-gray-600' },
@@ -116,8 +116,8 @@ export function Receivers() {
   const openReceiverModal = (r?: Receiver) => {
     setReceiverEdit(r || null);
     resetReceiverForm({
-      institutionId: r?.institutionId || '',
-      positionId: r?.positionId || '',
+      institutionId: r?.institution?.id || '',
+      positionId: r?.position?.id || '',
       email: r?.email || '',
       contactNo: r?.contactNo || '',
       address: r?.address || ''
@@ -125,7 +125,7 @@ export function Receivers() {
     setReceiverModalOpen(true);
   };
 
-  const onSaveReceiver = async (data: Partial<Receiver>) => {
+  const onSaveReceiver = async (data: { institutionId?: string, positionId?: string, email?: string | null, contactNo?: string | null, address?: string | null }) => {
     try {
       if (receiverEdit) await receiversService.updateReceiver(receiverEdit.id, data);
       else await receiversService.createReceiver(data);

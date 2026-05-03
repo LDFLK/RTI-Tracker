@@ -1,4 +1,4 @@
-import { Pencil, Trash2, Plus, Search } from 'lucide-react';
+import { Pencil, Trash2, Plus, Search, Eye } from 'lucide-react';
 import { Button } from './Button';
 import { Pagination as PaginationComponent } from './Pagination';
 import { TableProps } from '../types/table';
@@ -43,6 +43,7 @@ export function DataTable<T>({
   onSearch,
   data,
   columns,
+  onView,
   onEdit,
   onDelete,
   loading,
@@ -51,7 +52,7 @@ export function DataTable<T>({
   pagination,
   onPageChange,
   onPageSizeChange
-}: TableProps<T>) {
+}: TableProps<T> & { onView?: (item: T) => void }) {
 
   let content;
   if (loading && data.length === 0) {
@@ -77,20 +78,26 @@ export function DataTable<T>({
                   {col.header}
                 </th>
               ))}
-              {(onEdit || onDelete) && <th className="px-4 py-3 bg-white border-b border-gray-100 w-[140px]">Actions</th>}
+              {(onView || onEdit || onDelete) && <th className="px-4 py-3 bg-white border-b border-gray-100 w-[140px]">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {data.map((item) => (
+            {data.map((item, rowIndex) => (
               <tr key={(item as any).id} className="hover:bg-gray-50/50">
                 {columns.map((col, i) => (
                   <td key={i} className={`px-4 py-3 ${col.className || ''}`}>
-                    {col.accessor ? String((item as any)[col.accessor] ?? '-') : '-'}
+                    {col.render ? col.render(item, rowIndex) : (col.accessor ? String((item as any)[col.accessor] ?? '-') : '-')}
                   </td>
                 ))}
-                {(onEdit || onDelete) && (
+
+                {(onView || onEdit || onDelete) && (
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      {onView && (
+                        <Button variant="outline" size="sm" className="px-2" onClick={() => onView(item)} title="View">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      )}
                       {onEdit && (
                         <Button variant="outline" size="sm" className="px-2" onClick={() => onEdit(item)} title="Edit">
                           <Pencil className="w-4 h-4" />
@@ -131,3 +138,4 @@ export function DataTable<T>({
     </div>
   );
 }
+
