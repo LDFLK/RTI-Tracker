@@ -1,7 +1,4 @@
-import { ProtectedRoute } from '@asgardeo/react-router';
-import { BrowserRouter } from "react-router-dom";
-
-import { Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
 import { LoginRedirect } from './components/LoginRedirect';
@@ -15,15 +12,17 @@ import { Statuses } from './pages/Statuses';
 import { useAsgardeo } from '@asgardeo/react';
 
 export function App() {
-  const { isLoading } = useAsgardeo();
+  const { isLoading, isSignedIn } = useAsgardeo();
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={
           isLoading ? (
             <PreLoader message="Authentication in progress..." />
-          ) : (
+          ) : isSignedIn ? (
             <Layout />
+          ) : (
+            <Navigate to="/signin" replace />
           )
         }>
           <Route path="templates" element={<Templates />} />
