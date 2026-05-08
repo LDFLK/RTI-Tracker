@@ -26,7 +26,6 @@ export function App() {
           </ProtectedRoute>
         )
       }>
-        <Route index element={<Navigate to="templates" replace />} />
         <Route path="templates" element={<Templates />} />
         <Route path="receivers" element={<Receivers />} />
         <Route path="rti-requests" element={<RTIRequests />} />
