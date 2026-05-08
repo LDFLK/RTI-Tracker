@@ -1,6 +1,6 @@
 import { ProtectedRoute } from '@asgardeo/react-router';
 
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, BrowserRouter } from 'react-router-dom';
 
 import { Layout } from './components/Layout';
 import { LoginRedirect } from './components/LoginRedirect';
@@ -16,6 +16,7 @@ import { useAsgardeo } from '@asgardeo/react';
 export function App() {
   const { isLoading, isSignedIn } = useAsgardeo();
   return (
+    <BrowserRouter>
     <Routes>
       <Route path="/" element={
         isLoading && isSignedIn ? (
@@ -34,5 +35,6 @@ export function App() {
       </Route>
       <Route path="/signin" element={<LoginRedirect />} />
     </Routes>
+    </BrowserRouter>
   );
 }
