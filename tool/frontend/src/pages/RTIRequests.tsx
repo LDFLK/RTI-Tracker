@@ -153,6 +153,7 @@ export function RTIRequests() {
         finalMarkdown = 'File uploaded manually';
       } else {
         const { mimeType } = getDefaultGeneratedFileSpec(requestFilePolicy);
+        console.log('RAW CONTENT:', rawContent);
         const { blob, fileName, finalMarkdown: generatedMarkdown } = await generateRTIPDF({
           title: formData.title,
           requestDate: formData.requestDate,
