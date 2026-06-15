@@ -174,25 +174,18 @@ export const generateRTIPDF = async (
   const pageWidth   = 210;
   const pageHeight  = 297;
   const contentW    = pageWidth - margin * 2;
-  const bottomLimit = pageHeight - 25;
-  const LINE_H      = 6;
-  const BASE_SIZE   = 11;
-  const BULLET_INDENT  = 5;
+  const bottomLimit = pageHeight - 30;
+  const LINE_H      = 7;
+  const BASE_SIZE   = 12;
+  const BULLET_INDENT  = 5.0;
   const BULLET_TEXT_X  = 10;
 
-  let cursorY = 35;
+  let cursorY = 42;
 
   const ensureSpace = (needed: number) => {
-    if (cursorY + needed > bottomLimit) { doc.addPage(); cursorY = 35; }
+    if (cursorY + needed > bottomLimit) { doc.addPage(); cursorY = 42; }
   };
 
-  // ── Header ────────────────────────────────────────────────────────────────
-  //try { doc.addImage('/logo_header.png', 'PNG', margin, 10, 45, 12); }
-  //catch { console.warn('Logo not found.'); }
-  //doc.setDrawColor(200, 200, 200);
-  //doc.setLineWidth(0.2);
-  //doc.line(margin, 25, pageWidth - margin, 25);
-  //cursorY = 35;
 
   const rawLines = finalMarkdown.split('\n');
   let activeAlign: 'left' | 'center' | 'right' = 'left';
