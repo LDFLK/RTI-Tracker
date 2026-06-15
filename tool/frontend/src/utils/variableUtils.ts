@@ -13,9 +13,7 @@ export const RTI_VARIABLES = [
   { name: 'Receiver Contact No', code: '{{receiver_contact_no}}', desc: 'Receiver Contact No', key: 'r_contactNo' },
 ];
 
-/**
- * Normalizes a variable key by removing braces, spaces, underscores and converting to lowercase.
- */
+
 const normalize = (key: string) => key.replace(/{{|}}|[\s_]/g, '').toLowerCase();
 
 export const getVariableValues = (

@@ -129,7 +129,7 @@ function calcRowWidth(doc: jsPDF, row: Tok[], fontSize: number): number {
   return w;
 }
 
-function getAlignX(align: 'left' | 'center' | 'right', rowW: number, margin: number, contentW: number): number {
+function getAlignX(align: 'left' | 'center' | 'right' | 'justify', rowW: number, margin: number, contentW: number): number {
   if (align === 'center') return margin + (contentW - rowW) / 2;
   if (align === 'right')  return margin + contentW - rowW;
   return margin;
@@ -138,7 +138,7 @@ function getAlignX(align: 'left' | 'center' | 'right', rowW: number, margin: num
 function renderParagraph(
   doc: jsPDF,
   text: string,
-  align: 'left' | 'center' | 'right',
+  align: 'left' | 'center' | 'right' | 'justify',
   margin: number,
   contentW: number,
   fontSize: number,
@@ -206,16 +206,16 @@ export const generateRTIPDF = async (
   doc.setCharSpace(0);
 
   const rawLines = finalMarkdown.split('\n');
-  let activeAlign: 'left' | 'center' | 'right' = 'left';
+  let activeAlign: 'left' | 'center' | 'right' | 'justify' = 'left';
 
   for (const line of rawLines) {
     let trimmed = line.trim();
 
     const inlineDivMatch = trimmed.match(
-      /^<div[^>]*text-align:\s*(left|center|right)[^>]*>([\s\S]*?)<\/div>$/i
+      /^<div[^>]*text-align:\s*(left|center|right|justify)[^>]*>([\s\S]*?)<\/div>$/i
     );
     if (inlineDivMatch) {
-      const divAlign  = inlineDivMatch[1].toLowerCase() as 'left' | 'center' | 'right';
+      const divAlign  = inlineDivMatch[1].toLowerCase() as 'left' | 'center' | 'right'| 'justify';
       const divContent = inlineDivMatch[2].trim();
       if (divContent === '') { cursorY += 4; continue; }  // empty alignment div → gap
       cursorY = renderParagraph(doc, divContent, divAlign, margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit);
@@ -224,9 +224,9 @@ export const generateRTIPDF = async (
     }
 
     // Case 2: opening div only  <div style="text-align: X">  (multiline block)
-    const openDivMatch = trimmed.match(/^<div[^>]*text-align:\s*(left|center|right)[^>]*>$/i);
+    const openDivMatch = trimmed.match(/^<div[^>]*text-align:\s*(left|center|right|justify)[^>]*>$/i);
     if (openDivMatch) {
-      activeAlign = openDivMatch[1].toLowerCase() as 'left' | 'center' | 'right';
+      activeAlign = openDivMatch[1].toLowerCase() as 'left' | 'center' | 'right'| 'justify';
       continue;
     }
 
@@ -294,10 +294,11 @@ export const generateRTIPDF = async (
     // ── Regular paragraph ───────────────────────────────────────────────────
     cursorY = renderParagraph(doc, trimmed, activeAlign, margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit);
     cursorY += 1;
-  } // This closing brace successfully finishes your loop before headers/footers print
+  } 
 
   // ── Multi-Page Running Layout Pass (Headers & Footers) ──────────────────────
   const pageCount = doc.getNumberOfPages();
+
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     
