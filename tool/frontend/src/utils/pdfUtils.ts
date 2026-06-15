@@ -283,47 +283,46 @@ export const generateRTIPDF = async (
     // ── Regular paragraph ───────────────────────────────────────────────────
     cursorY = renderParagraph(doc, trimmed, activeAlign, margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit);
     cursorY += 1;
+  } // This closing brace successfully finishes your loop before headers/footers print
 
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
+  // ── Multi-Page Running Layout Pass (Headers & Footers) ──────────────────────
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
     
-        // Draw Logo Branding
-        try { 
-           doc.addImage('/logo_header.png', 'PNG', margin, 10, 45, 12); 
-        } catch { 
-           console.warn('Logo asset link missing.'); 
-        }
+    // 1. Stamp Running Header Components
+    try { 
+       doc.addImage('/logo_header.png', 'PNG', margin, 10, 45, 12); 
+    } catch { 
+       console.warn('Logo asset link missing.'); 
+    }
 
-        // Draw Visual Partition Line
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.1);
-        doc.line(margin, 20, pageWidth - margin, 20);
+    // Top Separator line (Corrected to Y=25)
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.1);
+    doc.line(margin, 25, pageWidth - margin, 25);
 
-        // 2. Stamp Running Footer Components
-        const footerYLine = pageHeight - 16; // Coordinates for horizontal partition rule line
-        const footerYText = pageHeight - 10; // Coordinates for the text base level
+    // 2. Stamp Running Footer Components
+    const footerYLine = pageHeight - 16; 
+    const footerYText = pageHeight - 10; 
     
-        // Draw Footer Separator line (matches header gray styling profile)
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.1);
-        doc.line(margin, footerYLine, pageWidth - margin, footerYLine);
-        //doc.line(margin, 20, pageWidth - margin, 20);
+    // Draw Footer Separator line
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.1);
+    doc.line(margin, footerYLine, pageWidth - margin, footerYLine);
 
-        // Render Company Metadata Address Details 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(0, 0, 0); // Elegant medium-gray color
+    // Render Company Metadata Address Details 
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0); 
     
-        const footerText = "GA 00000000  | Hill Street, Dehiwela, Sri Lanka  |  +94 70 xxxxxxx  |  contact@datafoundation.lk";
+    const footerText = "GA 00000000  | Hill Street, Dehiwela, Sri Lanka  |  +94 70 xxxxxxx  |  contact@datafoundation.lk";
     
-        // Auto-center the footer text completely on the page vector width width math
-        const textWidth = doc.getTextWidth(footerText);
-        const footerX = (pageWidth - textWidth) / 2;
+    // Auto-center the footer text completely
+    const textWidth = doc.getTextWidth(footerText);
+    const footerX = (pageWidth - textWidth) / 2;
     
-        doc.text(footerText, footerX, footerYText);
-      }
-
+    doc.text(footerText, footerX, footerYText);
   }
 
   const blob     = doc.output('blob');
