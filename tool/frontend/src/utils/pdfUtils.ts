@@ -17,9 +17,20 @@ interface Segment {
   underline: boolean;
 }
 
+function sanitizeForPDF(text: string): string {
+  return text
+    .replace(/[\u2018\u2019]/g, "'")   
+    .replace(/[\u201C\u201D]/g, '"')   
+    .replace(/[\u2013]/g,       '-')   
+    .replace(/[\u2014]/g,       '--')  
+    .replace(/[\u2026]/g,       '...') 
+    .replace(/[\u00A0]/g,       ' ')  
+    .replace(/[^\x00-\xFF]/g,   '');   
+}
+ 
 function parseInlineSegments(raw: string): Segment[] {
   const segments: Segment[] = [];
-  let normalised = raw
+  let normalised = sanitizeForPDF(raw)
     .replace(/<strong>([\s\S]*?)<\/strong>/gi, '**$1**')
     .replace(/<b>([\s\S]*?)<\/b>/gi, '**$1**')
     .replace(/<em>([\s\S]*?)<\/em>/gi, '*$1*')
@@ -58,9 +69,10 @@ interface Tok { word: string; bold: boolean; italic: boolean; underline: boolean
 function segmentsToTokens(segments: Segment[]): Tok[] {
   const tokens: Tok[] = [];
   for (const seg of segments) {
-    for (const part of seg.text.split(/(\s+)/)) {
-      if (part === '') continue;
-      tokens.push({ word: part, bold: seg.bold, italic: seg.italic, underline: seg.underline });
+      for (const part of seg.text.split(/(\s+|\u00A0+)/)) {
+        if (part === '') continue;
+        const word = /^[\s\u00A0]+$/.test(part) ? ' ' : part;
+        tokens.push({ word, bold: seg.bold, italic: seg.italic, underline: seg.underline });
     }
   }
   return tokens;
@@ -101,8 +113,9 @@ function renderRow(doc: jsPDF, row: Tok[], startX: number, y: number, fontSize: 
   for (const tok of row) {
     const isSpace = /^\s+$/.test(tok.word);
     setFont(doc, tok.bold, tok.italic, fontSize);
-    const w = doc.getTextWidth(tok.word);
-    if (!isSpace) doc.text(tok.word, x, y);
+    const safeWord = sanitizeForPDF(tok.word);
+    const w = doc.getTextWidth(safeWord);
+    if (!isSpace) doc.text(safeWord, x, y);
     if (tok.underline) { if (!inUl) { ulStart = x; inUl = true; } }
     else flushUl(x);
     x += w;
@@ -112,7 +125,7 @@ function renderRow(doc: jsPDF, row: Tok[], startX: number, y: number, fontSize: 
 
 function calcRowWidth(doc: jsPDF, row: Tok[], fontSize: number): number {
   let w = 0;
-  row.forEach(t => { setFont(doc, t.bold, t.italic, fontSize); w += doc.getTextWidth(t.word); });
+  row.forEach(t => { setFont(doc, t.bold, t.italic, fontSize);     w += doc.getTextWidth(sanitizeForPDF(t.word));});
   return w;
 }
 
@@ -166,8 +179,9 @@ export const generateRTIPDF = async (
   data: PDFData
 ): Promise<{ blob: Blob; fileName: string; finalMarkdown: string }> => {
   const { title, requestDate, sender, receiver, content: rawContent } = data;
-  const finalMarkdown = replaceVariables(rawContent, requestDate, sender, receiver);
-
+  const finalMarkdown = sanitizeForPDF(
+    replaceVariables(rawContent, requestDate, sender, receiver)
+  );
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   const margin      = 19;
@@ -175,7 +189,7 @@ export const generateRTIPDF = async (
   const pageHeight  = 297;
   const contentW    = pageWidth - margin * 2;
   const bottomLimit = pageHeight - 30;
-  const LINE_H      = 7;
+  const LINE_H      = 8;
   const BASE_SIZE   = 12;
   const BULLET_INDENT  = 5.0;
   const BULLET_TEXT_X  = 10;
@@ -185,7 +199,11 @@ export const generateRTIPDF = async (
   const ensureSpace = (needed: number) => {
     if (cursorY + needed > bottomLimit) { doc.addPage(); cursorY = 42; }
   };
-
+  
+  doc.setFont('times', 'normal');
+  doc.setFontSize(BASE_SIZE);
+  doc.setTextColor(0, 0, 0);
+  doc.setCharSpace(0);
 
   const rawLines = finalMarkdown.split('\n');
   let activeAlign: 'left' | 'center' | 'right' = 'left';
@@ -279,7 +297,7 @@ export const generateRTIPDF = async (
   } // This closing brace successfully finishes your loop before headers/footers print
 
   // ── Multi-Page Running Layout Pass (Headers & Footers) ──────────────────────
-  const pageCount = doc.internal.getNumberOfPages();
+  const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     
@@ -316,6 +334,11 @@ export const generateRTIPDF = async (
     const footerX = (pageWidth - textWidth) / 2;
     
     doc.text(footerText, footerX, footerYText);
+
+    doc.setFont('times', 'normal');
+    doc.setFontSize(BASE_SIZE);
+    doc.setTextColor(0, 0, 0);
+    doc.setCharSpace(0);
   }
 
   const blob     = doc.output('blob');
