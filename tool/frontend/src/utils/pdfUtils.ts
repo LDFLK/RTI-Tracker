@@ -13,7 +13,7 @@ interface PDFData {
 // ── Constants ─────────────────────────────────────────────────────────────────
 const BASE_FONT_SIZE  = 12;        // pt
 const LINE_SPACING    = 1.15;      // multiplier
-const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.352778; // pt→mm
+const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.352800; // pt→mm
 const MARGIN          = 19;        // mm
 const PAGE_W          = 210;       // A4 mm
 const PAGE_H          = 297;

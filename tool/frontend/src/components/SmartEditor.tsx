@@ -1,9 +1,46 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Bold, Italic, Underline, Heading1, Heading2, Type, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Node, mergeAttributes } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import UnderlineExtension from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
+
+// ── Variable Pill Tiptap Extension ──────────────────────────────────────────
+const VariablePill = Node.create({
+  name: 'variablePill',
+  group: 'inline',
+  inline: true,
+  selectable: true,
+  atom: true, // This makes it a single unit; backspace deletes the whole pill
+  addAttributes() {
+    return {
+      code: { default: null },
+      name: { default: null },
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-code]',
+        getAttrs: dom => ({
+          code: (dom as HTMLElement).getAttribute('data-code'),
+          name: (dom as HTMLElement).innerText.replace('×', '').trim(),
+        }),
+      },
+    ];
+  },
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      'span',
+      mergeAttributes(HTMLAttributes, {
+        class: 'pill-chip inline-flex items-center px-2 py-0.5 mx-1 rounded-md text-xs bg-blue-100 text-blue-800 border border-blue-200 select-none cursor-default font-semibold',
+        'data-code': node.attrs.code,
+      }),
+      ['span', { class: 'pointer-events-none' }, node.attrs.name],
+      ['span', { class: 'pill-remove ml-1 hover:bg-blue-300 rounded-full w-4 h-4 flex items-center justify-center cursor-pointer transition-colors font-bold' }, '×']
+    ];
+  },
+});
 
 export interface SmartEditorRef {
   getMarkdown: () => string;
@@ -67,7 +104,8 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
 
     const tag = el.tagName.toLowerCase();
 
-    if (['script', 'style', 'meta'].includes(tag)) return '';
+    // Skip removal "x" buttons and metadata tags during serialization
+    if (['script', 'style', 'meta'].includes(tag) || el.classList?.contains('pill-remove')) return '';
 
     const children = Array.from(el.childNodes).map(walkNode).join('');
 
@@ -268,6 +306,7 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
       }),
       UnderlineExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      VariablePill,
     ],
     content: markdownToHtml(initialMarkdown, placeholders),
     editorProps: {
@@ -283,6 +322,23 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
         ].join(' '),
         style: 'font-family:"Times New Roman",Times,serif;white-space:pre-wrap;text-align:justify;text-justify:inter-word;line-height:1.15;orphans:3;widows:3;',
         'data-placeholder': placeholderText,
+      },
+      // Add DOM Event handler to make the "x" button work
+      handleDOMEvents: {
+        mousedown: (view, event) => {
+          const target = event.target as HTMLElement;
+          // If user clicked the removal "x"
+          if (target.classList.contains('pill-remove')) {
+            event.preventDefault();
+            // Find the position of the node in the editor and delete it
+            const pos = view.posAtDOM(target, 0);
+            if (pos >= 0) {
+              view.dispatch(view.state.tr.delete(pos, pos + 1));
+            }
+            return true;
+          }
+          return false;
+        }
       },
       handlePaste(view, event) {
         event.preventDefault();
@@ -309,6 +365,19 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
 
         return false;
       },
+      handleDrop(_view, event) {
+        const data = event.dataTransfer?.getData('application/json');
+        if (!data) return false;
+        try {
+          const variable = JSON.parse(data);
+          event.preventDefault();
+          const pillHtml = createPillHtml(variable.code, variable.name) + '\u200B';
+          window.dispatchEvent(new CustomEvent('tiptap-paste', { detail: { html: pillHtml } }));
+          return true;
+        } catch {
+          return false;
+        }
+      },
     },
     onUpdate({ editor }) {
       const html = editor.getHTML();
@@ -328,6 +397,31 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
     window.addEventListener('tiptap-paste', handler);
     return () => window.removeEventListener('tiptap-paste', handler);
   }, [editor]);
+
+  // Pill remove via event delegation (TipTap strips onclick from inserted HTML)
+  useEffect(() => {
+    const handlePillRemove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('pill-remove')) {
+        e.preventDefault();
+        const pill = target.closest('.pill-chip');
+        if (pill) {
+          pill.remove();
+          setTimeout(() => {
+            if (editor) {
+              const md = htmlToMarkdown(editor.getHTML(), placeholders);
+              onChangeRef.current?.(md);
+            }
+          }, 0);
+        }
+      }
+    };
+    const editorDom = editor?.view?.dom;
+    if (editorDom) {
+      editorDom.addEventListener('click', handlePillRemove);
+      return () => editorDom.removeEventListener('click', handlePillRemove);
+    }
+  }, [editor, placeholders]);
 
   // Sync initialMarkdown changes
   useEffect(() => {
@@ -372,7 +466,10 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
       editor?.commands.setContent(markdownToHtml(markdown, placeholders), false);
     },
     insertVariable: (code: string, name: string) => {
-      editor?.chain().focus().insertContent(createPillHtml(code, name) + '\u200B').run();
+      editor?.chain().focus().insertContent([
+        { type: 'variablePill', attrs: { code, name } },
+        { type: 'text', text: ' ' }
+      ]).run();
       setTimeout(() => {
         const md = htmlToMarkdown(editor?.getHTML() ?? '', placeholders);
         onChangeRef.current?.(md);
