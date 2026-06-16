@@ -85,25 +85,31 @@ const VariablePill = Node.create({
 
   addAttributes() {
     return {
-      code: { default: null },
-      name: { default: null },
+      code: { default: '' },
+      name: { default: '' },
     };
   },
 
   parseHTML() {
-    return [{ tag: 'span[data-variable]' }];
+    return [{ 
+      tag: 'span[data-variable]',
+      getAttrs: dom => ({
+        code: (dom as HTMLElement).getAttribute('data-variable'),
+        name: (dom as HTMLElement).getAttribute('data-name'),
+      }),
+    }];
   },
 
   renderHTML({ node }) {
     return [
       'span',
       mergeAttributes({
-        'data-variable': node.attrs.code,
-        'data-name': node.attrs.name,
+        'data-variable': node.attrs.code || '',
+        'data-name': node.attrs.name || '',
         class: 'variable-pill',
         contenteditable: 'false',
       }),
-      node.attrs.name,
+      node.attrs.name || '',
     ];
   },
 
@@ -137,6 +143,8 @@ interface SmartEditorProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function applyInlineMarkdown(text: string): string {
+  // If the text already contains HTML bold/italic tags (e.g. from paste cleanup),
+  // don't also apply markdown conversion — it would double-wrap
   if (/<(strong|em|b|i)\b/.test(text)) return text;
   return text
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
@@ -382,7 +390,7 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             'flex-1 p-8 bg-white overflow-y-auto outline-none text-base text-gray-800 leading-relaxed cursor-text',
             '[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900',
             '[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800',
-            '[&_p]:m-0 [&_p]:leading-[1.15] [&_strong]:font-bold [&_em]:italic [&_u]:underline',
+            '[&_p]:m-0 [&_p]:leading-[1.15] [&_p]:[orphans:3] [&_p]:[widows:3] [&_strong]:font-bold [&_em]:italic [&_u]:underline',
             '[&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2',
             '[&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2',
             '[&_li]:mb-1',

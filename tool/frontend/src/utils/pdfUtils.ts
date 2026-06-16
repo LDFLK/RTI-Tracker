@@ -356,7 +356,8 @@ export const generateRTIPDF = async (
       const divContent = inlineDivMatch[2].trim();
       if (!divContent) { cursorY += PARA_SPACING; continue; }
 
-      const innerHMatch = divContent.match(/^\s*(#{1,6})\s*(.*)/);
+      // Check if content inside the div is actually a heading
+      const innerHMatch = divContent.match(/^(#{1,6})\s+(.*)/);
       if (innerHMatch) {
         const level  = innerHMatch[1].length;
         const raw    = innerHMatch[2];
