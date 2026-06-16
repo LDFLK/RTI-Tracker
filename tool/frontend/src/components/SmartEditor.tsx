@@ -186,13 +186,16 @@ function markdownToHtml(markdown: string, placeholders: Record<string, string> =
     }
 
     // Alignment divs — pass through as-is (content inside may have markdown, apply formatting)
-    if (line.startsWith('<div style="text-align:') || line.startsWith('<div style="text-align: ')) {
-      // Try to extract and format content inside inline div
-      const inlineDiv = line.match(/^(<div[^>]*>)([\s\S]*?)(<\/div>)$/i);
+    if (line.trim().startsWith('<div style="text-align:')) {
+      // Convert alignment divs back to Tiptap-friendly p/h tags for the editor UI
+      const inlineDiv = line.match(/^<div\s+style="text-align:\s*(left|center|right|justify);?">([\s\S]*?)<\/div>$/i);
       if (inlineDiv) {
-        html += `${inlineDiv[1]}${applyInlineMarkdown(inlineDiv[2])}${inlineDiv[3]}`;
+        const align = inlineDiv[1].toLowerCase();
+        const content = inlineDiv[2].trim();
+        if (content.startsWith('# ')) html += `<h1 style="text-align:${align}">${applyInlineMarkdown(content.slice(2))}</h1>`;
+        else if (content.startsWith('## ')) html += `<h2 style="text-align:${align}">${applyInlineMarkdown(content.slice(3))}</h2>`;
+        else html += `<p style="text-align:${align}">${applyInlineMarkdown(content)}</p>`;
       } else {
-        // Multi-line div opening — pass through unchanged
         html += line;
       }
     } else if (line.trim() === '</div>') {

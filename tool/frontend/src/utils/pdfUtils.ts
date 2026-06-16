@@ -40,6 +40,17 @@ function sanitizeForPDF(text: string): string {
 // ── Inline style normalization ────────────────────────────────────────────────
 function normalizeInlineStyles(md: string): string {
   return md
+    // 1. Convert Tiptap's <p/h style="text-align:X"> to the div format the generator expects.
+    .replace(/<(p|h[1-2])[^>]*style="[^"]*text-align:\s*(left|center|right|justify);?[^"]*"[^>]*>([\s\S]*?)<\/\1>/gi,
+      (_, tag, align, inner) => {
+        const cleanInner = inner.trim();
+        if (!cleanInner) return '';
+        let content = cleanInner;
+        if (tag === 'h1') content = `# ${cleanInner}`;
+        else if (tag === 'h2') content = `## ${cleanInner}`;
+        return `<div style="text-align:${align.toLowerCase()}">${content}</div>\n`;
+      })
+    // 2. Normalize existing alignment divs
     .replace(/<div[^>]*style="[^"]*text-align:\s*(left|center|right|justify);?[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
       (_, align, inner) => {
         const cleanInner = inner.trim();
@@ -333,7 +344,7 @@ export const generateRTIPDF = async (
 
     // ── Inline single-line <div style="text-align:X">content</div> ────────────
     const inlineDivMatch = trimmed.match(
-      /^<div[^>]*text-align:\s*(left|center|right|justify)[^>]*>\s*([\s\S]*?)\s*<\/div>$/i
+      /^<div[^>]*style="[^"]*text-align:\s*(left|center|right|justify);?[^"]*"[^>]*>\s*([\s\S]*?)\s*<\/div>$/i
     );
     if (inlineDivMatch) {
       const divAlign   = inlineDivMatch[1].toLowerCase() as 'left' | 'center' | 'right' | 'justify';
