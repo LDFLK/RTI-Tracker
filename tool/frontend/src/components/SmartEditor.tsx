@@ -16,61 +16,30 @@ import StarterKit from '@tiptap/starter-kit';
 import UnderlineExtension from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// VARIABLE PILL — proper TipTap Node with React view
-//
-// Why ReactNodeViewRenderer?
-//   - React controls the DOM → Tailwind + event handlers work correctly
-//   - atom:true → TipTap treats it as one unit; backspace deletes the whole pill
-//   - deleteNode() from the NodeView props removes it cleanly from the document
-//   - renderHTML() is the single source of truth for serialisation (getHTML)
-//   - parseHTML() reads those same data attributes back on setContent
-// ─────────────────────────────────────────────────────────────────────────────
-
 const PillView = ({ node, deleteNode }: any) => (
   <NodeViewWrapper as="span" style={{ display: 'inline' }}>
     <span
       contentEditable={false}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        verticalAlign: 'middle',
-        padding: '1px 6px',
-        margin: '0 2px',
-        borderRadius: '6px',
-        fontSize: '0.75rem',
-        background: '#dbeafe',
-        color: '#1e40af',
-        border: '1px solid #bfdbfe',
-        cursor: 'default',
-        userSelect: 'none',
-        fontWeight: 600,
-        lineHeight: 1.6,
-        whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle',
+        padding: '1px 6px', margin: '0 2px', borderRadius: '6px',
+        fontSize: '0.75rem', background: '#dbeafe', color: '#1e40af',
+        border: '1px solid #bfdbfe', cursor: 'default', userSelect: 'none',
+        fontWeight: 600, lineHeight: 1.6, whiteSpace: 'nowrap',
       }}
     >
       <span>{node.attrs.name}</span>
       <span
         onClick={deleteNode}
         style={{
-          marginLeft: '4px',
-          cursor: 'pointer',
-          fontWeight: 'bold',
-          borderRadius: '9999px',
-          width: '14px',
-          height: '14px',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '10px',
-          lineHeight: 1,
-          color: '#1e40af',
+          marginLeft: '4px', cursor: 'pointer', fontWeight: 'bold',
+          borderRadius: '9999px', width: '14px', height: '14px',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '10px', lineHeight: 1, color: '#1e40af',
         }}
         onMouseEnter={e => (e.currentTarget.style.background = '#bfdbfe')}
         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-      >
-        ×
-      </span>
+      >×</span>
     </span>
   </NodeViewWrapper>
 );
@@ -82,16 +51,14 @@ const VariablePill = Node.create({
   atom: true,
   selectable: true,
   draggable: false,
-
   addAttributes() {
     return {
       code: { default: '' },
       name: { default: '' },
     };
   },
-
   parseHTML() {
-    return [{ 
+    return [{
       tag: 'span[data-variable]',
       getAttrs: dom => ({
         code: (dom as HTMLElement).getAttribute('data-variable'),
@@ -99,7 +66,6 @@ const VariablePill = Node.create({
       }),
     }];
   },
-
   renderHTML({ node }) {
     return [
       'span',
@@ -112,15 +78,72 @@ const VariablePill = Node.create({
       node.attrs.name || '',
     ];
   },
-
   addNodeView() {
     return ReactNodeViewRenderer(PillView);
   },
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────────────────────────────────────
+// ✅ ADDED: PageBreak custom node
+// Renders as a visible dashed line in the editor.
+// Serialises to <div class="page-break"></div> in getHTML()
+// so pdfUtils can detect it and call doc.addPage().
+const PageBreakView = ({ deleteNode }: any) => (
+  <NodeViewWrapper>
+    <div
+      contentEditable={false}
+      style={{
+        borderTop: '2px dashed #94a3b8',
+        margin: '12px 0',
+        position: 'relative',
+        textAlign: 'center',
+        cursor: 'default',
+      }}
+    >
+      <span style={{
+        background: 'white',
+        padding: '0 8px',
+        color: '#94a3b8',
+        fontSize: '11px',
+        fontFamily: 'sans-serif',
+        position: 'relative',
+        top: '-10px',
+        userSelect: 'none',
+      }}>
+        — Page Break —
+      </span>
+      <span
+        onClick={deleteNode}
+        style={{
+          position: 'absolute', right: 0, top: '-9px',
+          cursor: 'pointer', color: '#94a3b8', fontSize: '12px',
+          padding: '0 4px',
+        }}
+        title="Remove page break"
+      >×</span>
+    </div>
+  </NodeViewWrapper>
+);
+
+const PageBreak = Node.create({
+  name: 'pageBreak',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: false,
+  parseHTML() {
+    return [{ tag: 'div.page-break' }];
+  },
+  renderHTML() {
+    return ['div', {
+      class: 'page-break',
+      'data-page-break': 'true',
+      style: 'page-break-after:always;',
+    }];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(PageBreakView);
+  },
+});
 
 export interface SmartEditorRef {
   getMarkdown: () => string;
@@ -138,13 +161,7 @@ interface SmartEditorProps {
   showToolbar?: boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// INLINE MARKDOWN HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
 function applyInlineMarkdown(text: string): string {
-  // If the text already contains HTML bold/italic tags (e.g. from paste cleanup),
-  // don't also apply markdown conversion — it would double-wrap
   if (/<(strong|em|b|i)\b/.test(text)) return text;
   return text
     .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
@@ -152,10 +169,6 @@ function applyInlineMarkdown(text: string): string {
     .replace(/(?<!\*)\*(?!\*)([\s\S]+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
     .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HTML → MARKDOWN
-// ─────────────────────────────────────────────────────────────────────────────
 
 function htmlToMarkdown(
   html: string,
@@ -172,13 +185,18 @@ function htmlToMarkdown(
 
     const el = node as HTMLElement;
 
-    // Pills: TipTap's renderHTML puts data-variable on the span
     if (el.hasAttribute('data-variable')) {
       return el.getAttribute('data-variable') ?? '';
     }
 
     const tag = el.tagName.toLowerCase();
     if (['script', 'style', 'meta'].includes(tag)) return '';
+
+    // ✅ ADDED: page break serialisation — output a special marker line
+    // that pdfUtils detects to trigger doc.addPage()
+    if (tag === 'div' && (el.classList.contains('page-break') || el.getAttribute('data-page-break') === 'true')) {
+      return '<!--PAGE_BREAK-->\n';
+    }
 
     const children = (): string =>
       Array.from(el.childNodes).map(walkNode).join('');
@@ -227,20 +245,37 @@ function htmlToMarkdown(
     }
     if (tag === 'li') return children();
 
+    // ✅ FIXED: wrap() now applies the open/close marker to each line
+    // independently instead of once around the whole concatenated string.
+    // Without this, a stray outer <b>/<strong> that spans multiple
+    // paragraphs (very common when pasting from Word, Google Docs, or
+    // some PDFs — these often wrap the entire selection in a bold tag as
+    // a formatting-reset artifact, not because the text is actually bold)
+    // would produce a single "**" glued to the very start of the document
+    // and a lone, unmatched "**" glued to the very end — since the two
+    // markers end up on different lines, line-based re-parsing (in
+    // markdownToHtml and in pdfUtils' parseInlineSegments) can never pair
+    // them up, so they print as literal asterisks instead of bolding.
     const wrap = (inner: string, o: string, c: string) => {
-      const m = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
-      return m ? `${m[1]}${o}${m[2]}${c}${m[3]}` : `${o}${inner}${c}`;
+      return inner
+        .split('\n')
+        .map(line => {
+          const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);
+          if (!m || !m[2]) return line; // leave blank lines untouched
+          return `${m[1]}${o}${m[2]}${c}${m[3]}`;
+        })
+        .join('\n');
     };
 
     if (tag === 'strong' || tag === 'b') return wrap(children(), '**', '**');
-    if (tag === 'em' || tag === 'i')     return wrap(children(), '*', '*');
+    if (tag === 'em'     || tag === 'i') return wrap(children(), '*',  '*');
     if (tag === 'u')                     return wrap(children(), '<u>', '</u>');
 
     if (tag === 'span') {
       const s = el.style ?? {};
       let r = children();
       if (s.textDecoration?.includes('underline')) r = wrap(r, '<u>', '</u>');
-      if (s.fontStyle === 'italic')                r = wrap(r, '*', '*');
+      if (s.fontStyle === 'italic')                r = wrap(r, '*',  '*');
       const fw = parseInt(s.fontWeight ?? '0');
       if (s.fontWeight === 'bold' || fw >= 600)    r = wrap(r, '**', '**');
       return r;
@@ -253,12 +288,6 @@ function htmlToMarkdown(
   md = md.replace(/\n{3,}/g, '\n\n').trim();
   return md;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MARKDOWN → HTML
-// {{VAR_CODE}} → <span data-variable="{{VAR_CODE}}" data-name="Label">
-// TipTap's parseHTML() picks that up and creates a variablePill node.
-// ─────────────────────────────────────────────────────────────────────────────
 
 function pillSpan(code: string, name: string): string {
   return `<span data-variable="${code}" data-name="${name}"></span>`;
@@ -277,6 +306,13 @@ function markdownToHtml(
 
   while (i < lines.length) {
     const line = lines[i];
+
+    // ✅ ADDED: restore page break marker back to the custom div
+    if (line.trim() === '<!--PAGE_BREAK-->') {
+      html += '<div class="page-break" data-page-break="true" style="page-break-after:always;"></div>';
+      i++;
+      continue;
+    }
 
     if (/^\d+\.\s+/.test(line)) {
       html += '<ol>';
@@ -303,7 +339,7 @@ function markdownToHtml(
         /^<div\s+style="text-align:\s*(left|center|right|justify);?">([\s\S]*?)<\/div>$/i
       );
       if (m) {
-        const align = m[1].toLowerCase();
+        const align   = m[1].toLowerCase();
         const content = m[2].trim();
         if (content.startsWith('# '))
           html += `<h1 style="text-align:${align}">${applyInlineMarkdown(content.slice(2))}</h1>`;
@@ -326,11 +362,10 @@ function markdownToHtml(
     i++;
   }
 
-  // {{VAR_CODE}} → pill span
   html = html.replace(/\{\{([^}]+)\}\}/g, (_match, inner) => {
-    const code = `{{${inner.trim()}}}`;
+    const code  = `{{${inner.trim()}}}`;
     const label = inner.trim();
-    const name =
+    const name  =
       placeholders[code] ??
       label.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
     return pillSpan(code, name);
@@ -339,13 +374,16 @@ function markdownToHtml(
   return html;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PASTE CLEANER
-// ─────────────────────────────────────────────────────────────────────────────
-
 function cleanPastedHtml(raw: string): string {
   return raw
     .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
+    // ✅ ADDED: Word's HTML clipboard export often wraps the *entire*
+    // pasted body in <b style="mso-bidi-font-weight:normal">. This is
+    // purely a formatting-reset artifact from Word's RTF→HTML conversion
+    // — it does not mean the content is actually bold — so strip it the
+    // same way the Google Docs wrapper above is stripped, before it can
+    // get mistaken for a real bold mark by htmlToMarkdown.
+    .replace(/<b\s+style="[^"]*font-weight:\s*normal[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
     .replace(/<meta[^>]*>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/\s*id="docs-internal-guid[^"]*"/gi, '')
@@ -355,10 +393,6 @@ function cleanPastedHtml(raw: string): string {
     .replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1')
     .replace(/[ \t]{2,}/g, ' ');
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SMARTEDITOR COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
   ({
@@ -375,13 +409,13 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
     const placeholdersRef = useRef(placeholders);
     useEffect(() => { placeholdersRef.current = placeholders; }, [placeholders]);
 
-    // ── Editor ─────────────────────────────────────────────────────────────────
     const editor = useEditor({
       extensions: [
         StarterKit.configure({ heading: { levels: [1, 2] }, hardBreak: false }),
         UnderlineExtension,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         VariablePill,
+        PageBreak, // ✅ ADDED
       ],
       content: markdownToHtml(initialMarkdown, placeholders),
       editorProps: {
@@ -390,14 +424,14 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             'flex-1 p-8 bg-white overflow-y-auto outline-none text-base text-gray-800 leading-relaxed cursor-text',
             '[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900',
             '[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800',
-            '[&_p]:m-0 [&_p]:leading-[1.15] [&_p]:[orphans:3] [&_p]:[widows:3] [&_strong]:font-bold [&_em]:italic [&_u]:underline',
+            '[&_p]:m-0 [&_p]:leading-[1.15] [&_strong]:font-bold [&_em]:italic [&_u]:underline',
             '[&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2',
             '[&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2',
             '[&_li]:mb-1',
           ].join(' '),
           style:
             'font-family:"Times New Roman",Times,serif;white-space:pre-wrap;' +
-            'text-align:justify;text-justify:inter-word;line-height:1.15;orphans:3;widows:3;',
+            'text-align:justify;text-justify:inter-word;line-height:1.15;',
           'data-placeholder': placeholderText,
         },
 
@@ -405,7 +439,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
           event.preventDefault();
           const cd = event.clipboardData;
           if (!cd) return false;
-
           const htmlData = cd.getData('text/html');
           if (htmlData) {
             const md = htmlToMarkdown(cleanPastedHtml(htmlData), placeholdersRef.current);
@@ -414,7 +447,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             }));
             return true;
           }
-
           const textData = cd.getData('text/plain');
           if (textData) {
             const finalHtml = textData
@@ -424,11 +456,9 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             window.dispatchEvent(new CustomEvent('smarteditor:insert', { detail: { html: finalHtml } }));
             return true;
           }
-
           return false;
         },
 
-        // Drag variable cards into editor
         handleDrop(_view, event) {
           const raw = event.dataTransfer?.getData('application/json');
           if (!raw) return false;
@@ -437,9 +467,7 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             event.preventDefault();
             window.dispatchEvent(new CustomEvent('smarteditor:insertNode', { detail: v }));
             return true;
-          } catch {
-            return false;
-          }
+          } catch { return false; }
         },
       },
 
@@ -448,110 +476,112 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
       },
     });
 
-    // Insert raw HTML at cursor
     useEffect(() => {
       const handler = (e: Event) => {
         const { html } = (e as CustomEvent<{ html: string }>).detail;
-        editor?.commands.insertContent(html, {
-          parseOptions: { preserveWhitespace: 'full' },
-        });
+        editor?.commands.insertContent(html, { parseOptions: { preserveWhitespace: 'full' } });
         setTimeout(() => {
-          if (editor)
-            onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
         }, 0);
       };
       window.addEventListener('smarteditor:insert', handler);
       return () => window.removeEventListener('smarteditor:insert', handler);
     }, [editor]);
 
-    // Insert variablePill node at cursor (used by drop + insertVariable)
     useEffect(() => {
       const handler = (e: Event) => {
         const { code, name } = (e as CustomEvent<{ code: string; name: string }>).detail;
         editor?.chain().focus().insertContent({ type: 'variablePill', attrs: { code, name } }).run();
         setTimeout(() => {
-          if (editor)
-            onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
         }, 0);
       };
       window.addEventListener('smarteditor:insertNode', handler);
       return () => window.removeEventListener('smarteditor:insertNode', handler);
     }, [editor]);
 
-    // Sync initialMarkdown prop
     useEffect(() => {
       if (!editor) return;
       const newHtml = markdownToHtml(initialMarkdown, placeholdersRef.current);
       if (newHtml !== editor.getHTML()) {
-        editor.commands.setContent(newHtml, false);
+        editor.commands.setContent(newHtml);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialMarkdown]);
 
-    // Format commands
     const applyFormat = useCallback(
       (command: string, value?: string) => {
         if (!editor) return;
         switch (command) {
-          case 'bold':          editor.chain().focus().toggleBold().run();               break;
-          case 'italic':        editor.chain().focus().toggleItalic().run();             break;
-          case 'underline':     editor.chain().focus().toggleUnderline().run();          break;
+          case 'bold':          editor.chain().focus().toggleBold().run();             break;
+          case 'italic':        editor.chain().focus().toggleItalic().run();           break;
+          case 'underline':     editor.chain().focus().toggleUnderline().run();        break;
           case 'formatBlock':
             if (value === 'h1')      editor.chain().focus().toggleHeading({ level: 1 }).run();
             else if (value === 'h2') editor.chain().focus().toggleHeading({ level: 2 }).run();
             else                     editor.chain().focus().setParagraph().run();
             break;
-          case 'justifyLeft':   editor.chain().focus().setTextAlign('left').run();      break;
-          case 'justifyCenter': editor.chain().focus().setTextAlign('center').run();    break;
-          case 'justifyRight':  editor.chain().focus().setTextAlign('right').run();     break;
-          case 'justifyFull':   editor.chain().focus().setTextAlign('justify').run();   break;
+          case 'justifyLeft':   editor.chain().focus().setTextAlign('left').run();    break;
+          case 'justifyCenter': editor.chain().focus().setTextAlign('center').run();  break;
+          case 'justifyRight':  editor.chain().focus().setTextAlign('right').run();   break;
+          case 'justifyFull':   editor.chain().focus().setTextAlign('justify').run(); break;
         }
         setTimeout(() => {
-          if (editor)
-            onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
         }, 0);
       },
       [editor]
     );
 
+    // ✅ ADDED: insert page break at cursor position
+    const insertPageBreak = useCallback(() => {
+      editor?.chain().focus().insertContent({ type: 'pageBreak' }).run();
+      setTimeout(() => {
+        if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+      }, 0);
+    }, [editor]);
+
     useImperativeHandle(ref, () => ({
       getMarkdown: () =>
         editor ? htmlToMarkdown(editor.getHTML(), placeholdersRef.current) : '',
-
       setMarkdown: (markdown: string) => {
-        editor?.commands.setContent(
-          markdownToHtml(markdown, placeholdersRef.current),
-          false
-        );
+        editor?.commands.setContent(markdownToHtml(markdown, placeholdersRef.current));
       },
-
-      // Click-to-insert from the variable panel
       insertVariable: (code: string, name: string) => {
         editor?.chain().focus().insertContent({ type: 'variablePill', attrs: { code, name } }).run();
         setTimeout(() => {
-          if (editor)
-            onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
         }, 0);
       },
-
       applyFormat,
     }), [editor, applyFormat]);
 
     return (
       <div className={`flex flex-col h-full min-h-0 ${className}`}>
         {showToolbar && (
-          <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
+          <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50 flex-shrink-0 flex-wrap">
             <ToolbarBtn title="Bold"        onClick={() => applyFormat('bold')}>            <Bold        className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Italic"      onClick={() => applyFormat('italic')}>          <Italic      className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Underline"   onClick={() => applyFormat('underline')}>       <Underline   className="w-4 h-4" /></ToolbarBtn>
-            <ToolbarBtn title="Heading 1"   onClick={() => applyFormat('formatBlock','h1')}><Heading1   className="w-5 h-5" /></ToolbarBtn>
-            <ToolbarBtn title="Heading 2"   onClick={() => applyFormat('formatBlock','h2')}><Heading2   className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Heading 1"   onClick={() => applyFormat('formatBlock','h1')}><Heading1    className="w-5 h-5" /></ToolbarBtn>
+            <ToolbarBtn title="Heading 2"   onClick={() => applyFormat('formatBlock','h2')}><Heading2    className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Normal Text" onClick={() => applyFormat('formatBlock','p')}>  <Type       className="w-4 h-4" /></ToolbarBtn>
             <div className="w-px h-4 bg-gray-200 mx-1" />
-            <ToolbarBtn title="Align Left"   onClick={() => applyFormat('justifyLeft')}>    <AlignLeft   className="w-4 h-4" /></ToolbarBtn>
-            <ToolbarBtn title="Align Center" onClick={() => applyFormat('justifyCenter')}>  <AlignCenter className="w-4 h-4" /></ToolbarBtn>
-            <ToolbarBtn title="Align Right"  onClick={() => applyFormat('justifyRight')}>   <AlignRight  className="w-4 h-4" /></ToolbarBtn>
-            <ToolbarBtn title="Justify"      onClick={() => applyFormat('justifyFull')}>    <AlignJustify className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Align Left"   onClick={() => applyFormat('justifyLeft')}>   <AlignLeft    className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Align Center" onClick={() => applyFormat('justifyCenter')}> <AlignCenter  className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Align Right"  onClick={() => applyFormat('justifyRight')}>  <AlignRight   className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Justify"      onClick={() => applyFormat('justifyFull')}>   <AlignJustify className="w-4 h-4" /></ToolbarBtn>
+            {/* ✅ ADDED: Page Break button */}
+            <div className="w-px h-4 bg-gray-200 mx-1" />
+            <button
+              title="Insert Page Break"
+              onMouseDown={e => e.preventDefault()}
+              onClick={insertPageBreak}
+              className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all text-xs font-medium flex items-center gap-1 px-2"
+            >
+              <span style={{ fontSize: '13px', lineHeight: 1 }}>⊟</span>
+              <span className="text-[11px]">Page Break</span>
+            </button>
           </div>
         )}
         <EditorContent

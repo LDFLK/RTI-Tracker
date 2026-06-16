@@ -10,7 +10,6 @@ interface PDFData {
   content: string;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
 const BASE_FONT_SIZE  = 12;
 const LINE_SPACING    = 1.15;
 const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.352778;
@@ -25,7 +24,6 @@ const BULLET_INDENT   = 5.0;
 const BULLET_TEXT_X   = 10;
 const PARA_SPACING    = LINE_H * 0.5;
 
-// ── Unicode sanitizer ─────────────────────────────────────────────────────────
 function sanitizeForPDF(text: string): string {
   return text
     .replace(/[\u2018\u2019]/g, "'")
@@ -37,18 +35,12 @@ function sanitizeForPDF(text: string): string {
     .replace(/[^\x00-\xFF]/g, '');
 }
 
-// ── Strip pill HTML that may survive into the markdown string ─────────────────
-// When getMarkdown() runs correctly, pills become {{VAR_CODE}}.
-// But if a pill's HTML leaks through (e.g. data-variable spans left in the
-// markdown), we strip those tags here before PDF rendering.
 function stripPillHtml(text: string): string {
-  // Remove <span data-variable="...">...</span> — replace with the code attr
   return text
     .replace(/<span[^>]*data-variable="([^"]*)"[^>]*>[\s\S]*?<\/span>/gi, '$1')
     .replace(/<span[^>]*class="variable-pill"[^>]*>([\s\S]*?)<\/span>/gi, '$1');
 }
 
-// ── Normalize alignment divs ──────────────────────────────────────────────────
 function normalizeInlineStyles(md: string): string {
   return md
     .replace(
@@ -73,7 +65,6 @@ function normalizeInlineStyles(md: string): string {
     .replace(/\s*id="docs-internal-guid[^"]*"/gi, '');
 }
 
-// ── Segment / Token types ─────────────────────────────────────────────────────
 interface Segment {
   text: string;
   bold: boolean;
@@ -88,7 +79,6 @@ interface Token {
   underline: boolean;
 }
 
-// ── Parse inline markdown/HTML from a line ────────────────────────────────────
 function parseInlineSegments(raw: string): Segment[] {
   const segments: Segment[] = [];
   let normalised = sanitizeForPDF(raw);
@@ -101,7 +91,6 @@ function parseInlineSegments(raw: string): Segment[] {
     .replace(/<em>([\s\S]*?)<\/em>/gi,         '*$1*')
     .replace(/<i>([\s\S]*?)<\/i>/gi,           '*$1*');
 
-  // Remove all tags except <u>
   normalised = normalised.replace(/<(?!\/?u(?:[\s>]|$))[^>]*>/gi, '');
 
   const pattern = /\*\*\*([\s\S]*?)\*\*\*|\*\*([\s\S]*?)\*\*|\*([\s\S]*?)\*|<u>([\s\S]*?)<\/u>/g;
@@ -308,22 +297,13 @@ function renderRowJustified(
   flushUl(x);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN PDF GENERATOR
-// ─────────────────────────────────────────────────────────────────────────────
-
 export const generateRTIPDF = async (
   data: PDFData
 ): Promise<{ blob: Blob; fileName: string; finalMarkdown: string }> => {
   const { title, requestDate, sender, receiver, content: rawContent } = data;
 
-  // 1. Replace {{VAR_CODE}} tokens with real values
-  const resolved = replaceVariables(rawContent, requestDate, sender, receiver);
-
-  // 2. Strip any pill HTML spans that may have leaked into the markdown
-  const stripped = stripPillHtml(resolved);
-
-  // 3. Normalize alignment divs + sanitize unicode
+  const resolved     = replaceVariables(rawContent, requestDate, sender, receiver);
+  const stripped     = stripPillHtml(resolved);
   const finalMarkdown = normalizeInlineStyles(sanitizeForPDF(stripped));
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -347,6 +327,14 @@ export const generateRTIPDF = async (
   for (const line of rawLines) {
     let trimmed = line.trim();
 
+    // ✅ ADDED: Page break marker — start a fresh page immediately
+    // SmartEditor serialises the PageBreak node as <!--PAGE_BREAK-->
+    if (trimmed === '<!--PAGE_BREAK-->') {
+      doc.addPage();
+      cursorY = CONTENT_START_Y;
+      continue;
+    }
+
     // ── Inline <div style="text-align:X">content</div> ───────────────────────
     const inlineDivMatch = trimmed.match(
       /^<div[^>]*style="[^"]*text-align:\s*(left|center|right|justify);?[^"]*"[^>]*>\s*([\s\S]*?)\s*<\/div>$/i
@@ -356,7 +344,6 @@ export const generateRTIPDF = async (
       const divContent = inlineDivMatch[2].trim();
       if (!divContent) { cursorY += PARA_SPACING; continue; }
 
-      // Check if content inside the div is actually a heading
       const innerHMatch = divContent.match(/^(#{1,6})\s+(.*)/);
       if (innerHMatch) {
         const level  = innerHMatch[1].length;
@@ -384,7 +371,6 @@ export const generateRTIPDF = async (
       continue;
     }
 
-    // ── Opening <div style="text-align:X"> ───────────────────────────────────
     const openDivMatch = trimmed.match(/^<div[^>]*text-align:\s*(left|center|right|justify);?[^>]*>$/i);
     if (openDivMatch) {
       activeAlign = openDivMatch[1].toLowerCase() as 'left' | 'center' | 'right' | 'justify';
@@ -397,7 +383,6 @@ export const generateRTIPDF = async (
 
     if (!trimmed) { cursorY += PARA_SPACING; continue; }
 
-    // ── Headings ──────────────────────────────────────────────────────────────
     const hMatch = trimmed.match(/^\s*(#{1,6})\s*(.*)/);
     if (hMatch) {
       const level  = hMatch[1].length;
@@ -406,11 +391,9 @@ export const generateRTIPDF = async (
       const hLineH = hSize * LINE_SPACING * 0.352778;
       const above  = level === 1 ? LINE_H * 1.5 : LINE_H * 0.8;
       const below  = level === 1 ? LINE_H * 0.6 : LINE_H * 0.4;
-
       const segs   = parseInlineSegments(raw).map(s => ({ ...s, bold: true }));
       const tokens = segmentsToTokens(segs);
       const rows   = wrapTokens(doc, tokens, CONTENT_W, hSize);
-
       ensureSpace(above + rows.length * hLineH + below);
       cursorY += above;
       for (const row of rows) {
@@ -423,7 +406,6 @@ export const generateRTIPDF = async (
       continue;
     }
 
-    // ── Unordered list item ───────────────────────────────────────────────────
     const ulMatch = trimmed.match(/^[-*•]\s+(.*)/);
     if (ulMatch) {
       ensureSpace(LINE_H + 1);
@@ -434,7 +416,6 @@ export const generateRTIPDF = async (
       continue;
     }
 
-    // ── Ordered list item ─────────────────────────────────────────────────────
     const olMatch = trimmed.match(/^(\d+)[.)]\s+(.*)/);
     if (olMatch) {
       const num = olMatch[1] + '.';
@@ -446,7 +427,6 @@ export const generateRTIPDF = async (
       continue;
     }
 
-    // ── Regular paragraph ─────────────────────────────────────────────────────
     const nextLine = rawLines[rawLines.indexOf(line) + 1]?.trim() ?? '';
     const isShortLine     = trimmed.length < 45;
     const nextIsShortLine = nextLine.length > 0 && nextLine.length < 45 && !nextLine.startsWith('#') && !nextLine.startsWith('<div');
