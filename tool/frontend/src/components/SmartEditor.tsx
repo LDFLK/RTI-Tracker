@@ -4,7 +4,6 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import UnderlineExtension from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
-import { Node as ProsemirrorNode } from 'prosemirror-model';
 
 export interface SmartEditorRef {
   getMarkdown: () => string;
@@ -29,14 +28,29 @@ const createPillHtml = (code: string, name: string) =>
   `<span class="pill-remove ml-1 hover:bg-blue-300 rounded-full w-4 h-4 flex items-center justify-center cursor-pointer transition-colors" onclick="this.parentElement.remove()" style="font-weight:bold;font-style:normal;">×</span>` +
   `</span>`;
 
-// ── HTML → Markdown serializer (TipTap-aware, word-spacing aware) ─────────────
+// ── Apply inline markdown formatting to a text string ────────────────────────
+// REPLACE the entire applyInlineMarkdown function:
+function applyInlineMarkdown(text: string): string {
+  // If the text already contains HTML bold/italic tags (e.g. from paste cleanup),
+  // don't also apply markdown conversion — it would double-wrap
+  if (/<strong>|<em>|<b>|<i>/.test(text)) {
+    // Only pass through <u> tags, leave existing HTML as-is
+    return text;
+  }
+  return text
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*(?!\*)([\s\S]+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
+}
+
+// ── HTML → Markdown serializer (TipTap-aware) ─────────────────────────────────
 function htmlToMarkdown(html: string, placeholders: Record<string, string> = {}): string {
   const div = document.createElement('div');
   div.innerHTML = html;
 
-  // Collapse whitespace-only text nodes that are adjacent siblings but preserve single space
   const normalizeWhitespace = (text: string) =>
-    text.replace(/[ \t]+/g, ' '); // collapse runs of spaces/tabs to single space
+    text.replace(/[ \t]+/g, ' ');
 
   function walkNode(node: Node): string {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -53,13 +67,10 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
 
     const tag = el.tagName.toLowerCase();
 
-    // Skip non-content tags
     if (['script', 'style', 'meta'].includes(tag)) return '';
 
-    // Recurse children
     const children = Array.from(el.childNodes).map(walkNode).join('');
 
-    // Block elements
     if (tag === 'br') return '\n';
 
     if (tag === 'p' || tag === 'div') {
@@ -75,7 +86,7 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
     if (tag === 'h1') {
       const align = el.style?.textAlign;
       const inner = children.trim();
-      const md = `# ${inner}`;
+      const md = `# ${inner}`.trim().replace(/^#\s*/, '# ');
       return align && align !== 'left'
         ? `<div style="text-align:${align}">${md}</div>\n`
         : `${md}\n`;
@@ -83,7 +94,7 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
     if (tag === 'h2') {
       const align = el.style?.textAlign;
       const inner = children.trim();
-      const md = `## ${inner}`;
+      const md = `## ${inner}`.trim().replace(/^##\s*/, '## ');
       return align && align !== 'left'
         ? `<div style="text-align:${align}">${md}</div>\n`
         : `${md}\n`;
@@ -105,7 +116,7 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
       return children;
     }
 
-    // Inline formatting — wrap, preserving leading/trailing whitespace outside the markers
+    // Inline formatting — preserve leading/trailing whitespace outside markers
     const wrapInline = (inner: string, open: string, close: string) => {
       const m = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
       if (!m) return `${open}${inner}${close}`;
@@ -113,10 +124,10 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
     };
 
     if (tag === 'strong' || tag === 'b') return wrapInline(children, '**', '**');
-    if (tag === 'em' || tag === 'i') return wrapInline(children, '*', '*');
-    if (tag === 'u') return wrapInline(children, '<u>', '</u>');
+    if (tag === 'em' || tag === 'i')     return wrapInline(children, '*', '*');
+    if (tag === 'u')                      return wrapInline(children, '<u>', '</u>');
 
-    // Span — check inline styles (pasted from Google Docs / Word)
+    // Span — handle pasted styles from Google Docs / Word
     if (tag === 'span') {
       const style = el.style ?? {};
       let result = children;
@@ -124,7 +135,7 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
       const fs = style.fontStyle;
       const td = style.textDecoration;
       if (td?.includes('underline')) result = wrapInline(result, '<u>', '</u>');
-      if (fs === 'italic') result = wrapInline(result, '*', '*');
+      if (fs === 'italic')           result = wrapInline(result, '*', '*');
       if (fw === 'bold' || fw === '700' || (parseInt(fw) >= 600)) result = wrapInline(result, '**', '**');
       return result;
     }
@@ -133,7 +144,6 @@ function htmlToMarkdown(html: string, placeholders: Record<string, string> = {})
   }
 
   let md = walkNode(div);
-  // Collapse 3+ newlines to 2
   md = md.replace(/\n{3,}/g, '\n\n').trim();
   return md;
 }
@@ -154,7 +164,9 @@ function markdownToHtml(markdown: string, placeholders: Record<string, string> =
     if (/^\d+\.\s+/.test(line)) {
       html += '<ol>';
       while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        html += `<li>${lines[i].replace(/^\d+\.\s+/, '')}</li>`;
+        // Apply inline formatting to list item content
+        const content = applyInlineMarkdown(lines[i].replace(/^\d+\.\s+/, ''));
+        html += `<li>${content}</li>`;
         i++;
       }
       html += '</ol>';
@@ -165,33 +177,42 @@ function markdownToHtml(markdown: string, placeholders: Record<string, string> =
     if (/^-\s+/.test(line)) {
       html += '<ul>';
       while (i < lines.length && /^-\s+/.test(lines[i])) {
-        html += `<li>${lines[i].replace(/^-\s+/, '')}</li>`;
+        const content = applyInlineMarkdown(lines[i].replace(/^-\s+/, ''));
+        html += `<li>${content}</li>`;
         i++;
       }
       html += '</ul>';
       continue;
     }
 
-    if (line.startsWith('<div style="text-align:') || line.startsWith('<div style="text-align: ') || line.trim() === '</div>') {
+    // Alignment divs — pass through as-is (content inside may have markdown, apply formatting)
+    if (line.startsWith('<div style="text-align:') || line.startsWith('<div style="text-align: ')) {
+      // Try to extract and format content inside inline div
+      const inlineDiv = line.match(/^(<div[^>]*>)([\s\S]*?)(<\/div>)$/i);
+      if (inlineDiv) {
+        html += `${inlineDiv[1]}${applyInlineMarkdown(inlineDiv[2])}${inlineDiv[3]}`;
+      } else {
+        // Multi-line div opening — pass through unchanged
+        html += line;
+      }
+    } else if (line.trim() === '</div>') {
       html += line;
     } else if (line.startsWith('# ')) {
-      html += `<h1>${line.slice(2)}</h1>`;
+      // Apply inline formatting to heading content
+      html += `<h1>${applyInlineMarkdown(line.slice(2))}</h1>`;
     } else if (line.startsWith('## ')) {
-      html += `<h2>${line.slice(3)}</h2>`;
+      html += `<h2>${applyInlineMarkdown(line.slice(3))}</h2>`;
     } else if (line.trim()) {
-      html += `<p>${line}</p>`;
+      // Regular paragraph — apply inline formatting per-line
+      html += `<p>${applyInlineMarkdown(line)}</p>`;
     } else {
       html += `<p></p>`;
     }
     i++;
   }
 
-  // Inline formatting
-  html = html
-    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
-    .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
+  // NOTE: Do NOT apply inline formatting on the full html string here —
+  // it would corrupt tag attributes. Per-line application above is correct.
 
   // Variables → pills
   html = html.replace(/{{([^}]+)}}/g, (match) => {
@@ -207,7 +228,7 @@ function markdownToHtml(markdown: string, placeholders: Record<string, string> =
 // ── Clean pasted HTML (Google Docs / Word / browser) ─────────────────────────
 function cleanPastedHtml(raw: string): string {
   return raw
-    // Remove Google Docs outer wrapper
+    // Remove Google Docs outer wrapper bold tag (preserves inner content)
     .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
     .replace(/<meta[^>]*>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -216,7 +237,7 @@ function cleanPastedHtml(raw: string): string {
     .replace(/<span([^>]*)font-weight\s*:\s*(?:bold|700|800|600)([^>]*)>([\s\S]*?)<\/span>/gi, '<strong>$3</strong>')
     // Preserve font-style italic spans as <em>
     .replace(/<span([^>]*)font-style\s*:\s*italic([^>]*)>([\s\S]*?)<\/span>/gi, '<em>$3</em>')
-    // Preserve underline spans
+    // Preserve underline spans as <u>
     .replace(/<span([^>]*)text-decoration\s*:[^;]*underline([^>]*)>([\s\S]*?)<\/span>/gi, '<u>$3</u>')
     // Strip remaining spans but keep content
     .replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1')
@@ -239,7 +260,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // Disable built-in heading/paragraph defaults we override
         heading: { levels: [1, 2] },
         hardBreak: false,
       }),
@@ -253,12 +273,12 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
           'flex-1 p-8 bg-white overflow-y-auto outline-none text-base text-gray-800 leading-relaxed cursor-text',
           '[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900',
           '[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800',
-          '[&_p]:m-0 [&_strong]:font-bold [&_em]:italic [&_u]:underline',
+          '[&_p]:m-0 [&_p]:leading-[1.15] [&_p]:[orphans:3] [&_p]:[widows:3] [&_strong]:font-bold [&_em]:italic [&_u]:underline',
           '[&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2',
           '[&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2',
           '[&_li]:mb-1',
         ].join(' '),
-        style: 'font-family:"Times New Roman",Times,serif;white-space:pre-wrap;text-align:justify;text-justify:inter-word;',
+        style: 'font-family:"Times New Roman",Times,serif;white-space:pre-wrap;text-align:justify;text-justify:inter-word;line-height:1.15;orphans:3;widows:3;',
         'data-placeholder': placeholderText,
       },
       handlePaste(view, event) {
@@ -269,22 +289,17 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
         const htmlData = clipboardData.getData('text/html');
         if (htmlData) {
           const cleaned = cleanPastedHtml(htmlData);
-          // Convert pasted HTML to markdown then back to clean HTML for TipTap
+          // Convert pasted HTML → markdown → clean HTML for TipTap
           const md = htmlToMarkdown(cleaned, placeholders);
           const cleanHtml = markdownToHtml(md, placeholders);
-          const { tr, selection } = view.state;
-          const { from, to } = selection;
-          // Use TipTap's insertContent via the editor command
-          // We'll handle via a custom event to avoid circular dependency
           window.dispatchEvent(new CustomEvent('tiptap-paste', { detail: { html: cleanHtml } }));
           return true;
         }
 
         const textData = clipboardData.getData('text/plain');
         if (textData) {
-          // Plain text: just insert it, converting line breaks to paragraphs
           const lines = textData.split(/\r?\n/);
-          const cleanHtml = lines.map(l => l.trim() ? `<p>${l}</p>` : '<p></p>').join('');
+          const cleanHtml = lines.map(l => l.trim() ? `<p>${applyInlineMarkdown(l)}</p>` : '<p></p>').join('');
           window.dispatchEvent(new CustomEvent('tiptap-paste', { detail: { html: cleanHtml } }));
           return true;
         }
@@ -316,7 +331,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
     if (!editor) return;
     const newHtml = markdownToHtml(initialMarkdown, placeholders);
     const currentHtml = editor.getHTML();
-    // Only update if content differs to avoid cursor reset
     if (newHtml !== currentHtml) {
       editor.commands.setContent(newHtml, false);
     }
@@ -325,20 +339,19 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
   const applyFormat = useCallback((command: string, value?: string) => {
     if (!editor) return;
     switch (command) {
-      case 'bold':        editor.chain().focus().toggleBold().run(); break;
-      case 'italic':      editor.chain().focus().toggleItalic().run(); break;
-      case 'underline':   editor.chain().focus().toggleUnderline().run(); break;
+      case 'bold':      editor.chain().focus().toggleBold().run();      break;
+      case 'italic':    editor.chain().focus().toggleItalic().run();    break;
+      case 'underline': editor.chain().focus().toggleUnderline().run(); break;
       case 'formatBlock':
-        if (value === 'h1') editor.chain().focus().toggleHeading({ level: 1 }).run();
+        if (value === 'h1')      editor.chain().focus().toggleHeading({ level: 1 }).run();
         else if (value === 'h2') editor.chain().focus().toggleHeading({ level: 2 }).run();
-        else editor.chain().focus().setParagraph().run();
+        else                     editor.chain().focus().setParagraph().run();
         break;
-      case 'justifyLeft':   editor.chain().focus().setTextAlign('left').run(); break;
-      case 'justifyCenter': editor.chain().focus().setTextAlign('center').run(); break;
-      case 'justifyRight':  editor.chain().focus().setTextAlign('right').run(); break;
+      case 'justifyLeft':   editor.chain().focus().setTextAlign('left').run();    break;
+      case 'justifyCenter': editor.chain().focus().setTextAlign('center').run();  break;
+      case 'justifyRight':  editor.chain().focus().setTextAlign('right').run();   break;
       case 'justifyFull':   editor.chain().focus().setTextAlign('justify').run(); break;
     }
-    // Trigger onChange after format
     setTimeout(() => {
       if (editor) {
         const md = htmlToMarkdown(editor.getHTML(), placeholders);
@@ -369,17 +382,47 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
     <div className={`flex flex-col h-full min-h-0 ${className}`}>
       {showToolbar && (
         <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('bold')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Bold"><Bold className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('italic')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Italic"><Italic className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('underline')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Underline"><Underline className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('formatBlock', 'h1')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Heading 1"><Heading1 className="w-5 h-5" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('formatBlock', 'h2')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Heading 2"><Heading2 className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('formatBlock', 'p')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Normal Text"><Type className="w-4 h-4" /></button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('bold')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Bold">
+            <Bold className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('italic')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Italic">
+            <Italic className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('underline')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Underline">
+            <Underline className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('formatBlock', 'h1')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Heading 1">
+            <Heading1 className="w-5 h-5" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('formatBlock', 'h2')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Heading 2">
+            <Heading2 className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('formatBlock', 'p')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Normal Text">
+            <Type className="w-4 h-4" />
+          </button>
           <div className="w-px h-4 bg-gray-200 mx-1" />
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyLeft')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Align Left"><AlignLeft className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyCenter')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Align Center"><AlignCenter className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyRight')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Align Right"><AlignRight className="w-4 h-4" /></button>
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyFull')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Justify"><AlignJustify className="w-4 h-4" /></button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyLeft')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Align Left">
+            <AlignLeft className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyCenter')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Align Center">
+            <AlignCenter className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyRight')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Align Right">
+            <AlignRight className="w-4 h-4" />
+          </button>
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyFull')}
+            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Justify">
+            <AlignJustify className="w-4 h-4" />
+          </button>
         </div>
       )}
       <EditorContent
