@@ -1,5 +1,10 @@
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Bold, Italic, Underline, Heading1, Heading2, Type, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import UnderlineExtension from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import { Node as ProsemirrorNode } from 'prosemirror-model';
 
 export interface SmartEditorRef {
   getMarkdown: () => string;
@@ -17,6 +22,209 @@ interface SmartEditorProps {
   showToolbar?: boolean;
 }
 
+// ── Pill rendering ────────────────────────────────────────────────────────────
+const createPillHtml = (code: string, name: string) =>
+  `<span class="pill-chip inline-flex items-center px-2 py-0.5 mx-1 rounded-md text-xs bg-blue-100 text-blue-800 border border-blue-200 select-none cursor-default" data-code="${code}" contenteditable="false" style="vertical-align:middle;display:inline-flex;font-weight:inherit;font-style:inherit;text-decoration:inherit;">` +
+  `<span style="font-weight:inherit;font-style:inherit;">${name}</span>` +
+  `<span class="pill-remove ml-1 hover:bg-blue-300 rounded-full w-4 h-4 flex items-center justify-center cursor-pointer transition-colors" onclick="this.parentElement.remove()" style="font-weight:bold;font-style:normal;">×</span>` +
+  `</span>`;
+
+// ── HTML → Markdown serializer (TipTap-aware, word-spacing aware) ─────────────
+function htmlToMarkdown(html: string, placeholders: Record<string, string> = {}): string {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+
+  // Collapse whitespace-only text nodes that are adjacent siblings but preserve single space
+  const normalizeWhitespace = (text: string) =>
+    text.replace(/[ \t]+/g, ' '); // collapse runs of spaces/tabs to single space
+
+  function walkNode(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return normalizeWhitespace(node.textContent ?? '');
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    const el = node as HTMLElement;
+
+    // Pills → variable code
+    if (el.classList?.contains('pill-chip')) {
+      return el.getAttribute('data-code') ?? '';
+    }
+
+    const tag = el.tagName.toLowerCase();
+
+    // Skip non-content tags
+    if (['script', 'style', 'meta'].includes(tag)) return '';
+
+    // Recurse children
+    const children = Array.from(el.childNodes).map(walkNode).join('');
+
+    // Block elements
+    if (tag === 'br') return '\n';
+
+    if (tag === 'p' || tag === 'div') {
+      const align = el.style?.textAlign;
+      const inner = children.trim();
+      if (!inner) return '\n';
+      if (align && align !== 'left') {
+        return `<div style="text-align:${align}">${inner}</div>\n`;
+      }
+      return `${inner}\n`;
+    }
+
+    if (tag === 'h1') {
+      const align = el.style?.textAlign;
+      const inner = children.trim();
+      const md = `# ${inner}`;
+      return align && align !== 'left'
+        ? `<div style="text-align:${align}">${md}</div>\n`
+        : `${md}\n`;
+    }
+    if (tag === 'h2') {
+      const align = el.style?.textAlign;
+      const inner = children.trim();
+      const md = `## ${inner}`;
+      return align && align !== 'left'
+        ? `<div style="text-align:${align}">${md}</div>\n`
+        : `${md}\n`;
+    }
+
+    if (tag === 'ul') {
+      return Array.from(el.children)
+        .filter(c => c.tagName.toLowerCase() === 'li')
+        .map(li => `- ${Array.from(li.childNodes).map(walkNode).join('').trim()}`)
+        .join('\n') + '\n';
+    }
+    if (tag === 'ol') {
+      return Array.from(el.children)
+        .filter(c => c.tagName.toLowerCase() === 'li')
+        .map((li, i) => `${i + 1}. ${Array.from(li.childNodes).map(walkNode).join('').trim()}`)
+        .join('\n') + '\n';
+    }
+    if (tag === 'li') {
+      return children;
+    }
+
+    // Inline formatting — wrap, preserving leading/trailing whitespace outside the markers
+    const wrapInline = (inner: string, open: string, close: string) => {
+      const m = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      if (!m) return `${open}${inner}${close}`;
+      return `${m[1]}${open}${m[2]}${close}${m[3]}`;
+    };
+
+    if (tag === 'strong' || tag === 'b') return wrapInline(children, '**', '**');
+    if (tag === 'em' || tag === 'i') return wrapInline(children, '*', '*');
+    if (tag === 'u') return wrapInline(children, '<u>', '</u>');
+
+    // Span — check inline styles (pasted from Google Docs / Word)
+    if (tag === 'span') {
+      const style = el.style ?? {};
+      let result = children;
+      const fw = style.fontWeight;
+      const fs = style.fontStyle;
+      const td = style.textDecoration;
+      if (td?.includes('underline')) result = wrapInline(result, '<u>', '</u>');
+      if (fs === 'italic') result = wrapInline(result, '*', '*');
+      if (fw === 'bold' || fw === '700' || (parseInt(fw) >= 600)) result = wrapInline(result, '**', '**');
+      return result;
+    }
+
+    return children;
+  }
+
+  let md = walkNode(div);
+  // Collapse 3+ newlines to 2
+  md = md.replace(/\n{3,}/g, '\n\n').trim();
+  return md;
+}
+
+// ── Markdown → HTML (for initialising TipTap) ────────────────────────────────
+function markdownToHtml(markdown: string, placeholders: Record<string, string> = {}): string {
+  if (!markdown?.trim()) return '';
+
+  const normalised = markdown.replace(/^\s*\*\s+(.*)$/gm, '- $1');
+  const lines = normalised.split('\n');
+  let html = '';
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Ordered list block
+    if (/^\d+\.\s+/.test(line)) {
+      html += '<ol>';
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        html += `<li>${lines[i].replace(/^\d+\.\s+/, '')}</li>`;
+        i++;
+      }
+      html += '</ol>';
+      continue;
+    }
+
+    // Unordered list block
+    if (/^-\s+/.test(line)) {
+      html += '<ul>';
+      while (i < lines.length && /^-\s+/.test(lines[i])) {
+        html += `<li>${lines[i].replace(/^-\s+/, '')}</li>`;
+        i++;
+      }
+      html += '</ul>';
+      continue;
+    }
+
+    if (line.startsWith('<div style="text-align:') || line.startsWith('<div style="text-align: ') || line.trim() === '</div>') {
+      html += line;
+    } else if (line.startsWith('# ')) {
+      html += `<h1>${line.slice(2)}</h1>`;
+    } else if (line.startsWith('## ')) {
+      html += `<h2>${line.slice(3)}</h2>`;
+    } else if (line.trim()) {
+      html += `<p>${line}</p>`;
+    } else {
+      html += `<p></p>`;
+    }
+    i++;
+  }
+
+  // Inline formatting
+  html = html
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
+
+  // Variables → pills
+  html = html.replace(/{{([^}]+)}}/g, (match) => {
+    const code = match.trim();
+    const cleanLabel = code.replace(/{{|}}/g, '').trim();
+    const name = placeholders[code] || cleanLabel.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return createPillHtml(code, name);
+  });
+
+  return html;
+}
+
+// ── Clean pasted HTML (Google Docs / Word / browser) ─────────────────────────
+function cleanPastedHtml(raw: string): string {
+  return raw
+    // Remove Google Docs outer wrapper
+    .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
+    .replace(/<meta[^>]*>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/\s*id="docs-internal-guid[^"]*"/gi, '')
+    // Preserve font-weight bold spans as <strong>
+    .replace(/<span([^>]*)font-weight\s*:\s*(?:bold|700|800|600)([^>]*)>([\s\S]*?)<\/span>/gi, '<strong>$3</strong>')
+    // Preserve font-style italic spans as <em>
+    .replace(/<span([^>]*)font-style\s*:\s*italic([^>]*)>([\s\S]*?)<\/span>/gi, '<em>$3</em>')
+    // Preserve underline spans
+    .replace(/<span([^>]*)text-decoration\s*:[^;]*underline([^>]*)>([\s\S]*?)<\/span>/gi, '<u>$3</u>')
+    // Strip remaining spans but keep content
+    .replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1')
+    // Collapse multiple spaces (but not newlines)
+    .replace(/[ \t]{2,}/g, ' ');
+}
+
+// ── SmartEditor component ─────────────────────────────────────────────────────
 export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
   initialMarkdown = '',
   onChange,
@@ -25,399 +233,137 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
   placeholderText = 'Start typing...',
   showToolbar = true
 }, ref) => {
-  const editorRef = useRef<HTMLDivElement>(null);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
-  const createPillHtml = (code: string, name: string) => {
-    return `<span class="pill-chip inline-flex items-center px-2 py-0.5 mx-1 rounded-md text-xs bg-blue-100 text-blue-800 border border-blue-200 select-none cursor-default" data-code="${code}" contenteditable="false" style="vertical-align: middle; display: inline-flex; font-weight: inherit; font-style: inherit; text-decoration: inherit;">` +
-      `<span style="font-weight: inherit; font-style: inherit;">${name}</span>` +
-      `<span class="pill-remove ml-1 hover:bg-blue-300 rounded-full w-4 h-4 flex items-center justify-center cursor-pointer transition-colors" onclick="this.parentElement.remove()" style="font-weight: bold; font-style: normal;">×</span>` +
-      `</span>`;
-  };
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // Disable built-in heading/paragraph defaults we override
+        heading: { levels: [1, 2] },
+        hardBreak: false,
+      }),
+      UnderlineExtension,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    ],
+    content: markdownToHtml(initialMarkdown, placeholders),
+    editorProps: {
+      attributes: {
+        class: [
+          'flex-1 p-8 bg-white overflow-y-auto outline-none text-base text-gray-800 leading-relaxed cursor-text',
+          '[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900',
+          '[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800',
+          '[&_p]:m-0 [&_strong]:font-bold [&_em]:italic [&_u]:underline',
+          '[&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2',
+          '[&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2',
+          '[&_li]:mb-1',
+        ].join(' '),
+        style: 'font-family:"Times New Roman",Times,serif;white-space:pre-wrap;text-align:justify;text-justify:inter-word;',
+        'data-placeholder': placeholderText,
+      },
+      handlePaste(view, event) {
+        event.preventDefault();
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
 
-  const parseMarkdownToHtml = (markdown: string) => {
-    if (!markdown || markdown.trim() === '') return '';
-
-    const normalizedMarkdown = markdown.replace(/^(\s*)\*\s+(.*)$/gm, '$1- $2');
-    const lines = normalizedMarkdown.split('\n');
-    let html = '';
-    let i = 0;
-
-    while (i < lines.length) {
-      const line = lines[i];
-
-      const olMatch = line.match(/^\d+\.\s+(.*)/);
-      if (olMatch) {
-        html += '<ol>';
-        while (i < lines.length) {
-          const lm = lines[i].match(/^\d+\.\s+(.*)/);
-          if (!lm) break;
-          html += `<li>${lm[1]}</li>`;
-          i++;
-        }
-        html += '</ol>';
-        continue;
-      }
-
-      const ulMatch = line.match(/^-\s+(.*)/);
-      if (ulMatch) {
-        html += '<ul>';
-        while (i < lines.length) {
-          const lm = lines[i].match(/^-\s+(.*)/);
-          if (!lm) break;
-          html += `<li>${lm[1]}</li>`;
-          i++;
-        }
-        html += '</ul>';
-        continue;
-      }
-
-      if (line.startsWith('<div style="text-align:') || line.trim() === '</div>') {
-        html += line;
-      } else if (line.startsWith('# ')) {
-        html += `<h1>${line.slice(2)}</h1>`;
-      } else if (line.startsWith('## ')) {
-        html += `<h2>${line.slice(3)}</h2>`;
-      } else if (line.trim()) {
-        html += `<p>${line}</p>`;
-      } else {
-        html += `<p><br></p>`;
-      }
-      i++;
-    }
-
-    html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-    html = html.replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
-
-    html = html.replace(/{{([^}]+)}}/g, (match) => {
-      const code = match.trim();
-      const cleanLabel = code.replace(/{{|}}/g, '').trim();
-      const name = placeholders[code] || cleanLabel.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      return createPillHtml(code, name);
-    });
-
-    return html;
-  };
-
-  const serializeHtmlToMarkdown = (html: string) => {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-
-    const normalizeGoogleDocsSpans = (root: HTMLElement) => {
-      root.querySelectorAll('span').forEach(span => {
-        const style = span.style;
-        const fw = style.fontWeight;
-        const fs = style.fontStyle;
-        const td = style.textDecoration;
-
-        // Replace span with semantic tags wrapping its content
-        let inner: Node = span;
-
-        if (td === 'underline' || td.includes('underline')) {
-          const u = document.createElement('u');
-          u.innerHTML = span.innerHTML;
-          span.parentNode?.replaceChild(u, span);
-          inner = u;
+        const htmlData = clipboardData.getData('text/html');
+        if (htmlData) {
+          const cleaned = cleanPastedHtml(htmlData);
+          // Convert pasted HTML to markdown then back to clean HTML for TipTap
+          const md = htmlToMarkdown(cleaned, placeholders);
+          const cleanHtml = markdownToHtml(md, placeholders);
+          const { tr, selection } = view.state;
+          const { from, to } = selection;
+          // Use TipTap's insertContent via the editor command
+          // We'll handle via a custom event to avoid circular dependency
+          window.dispatchEvent(new CustomEvent('tiptap-paste', { detail: { html: cleanHtml } }));
+          return true;
         }
 
-        // Re-query since we may have replaced the node
-        const current = inner as HTMLElement;
-
-        if (fs === 'italic') {
-          const em = document.createElement('em');
-          em.innerHTML = current.innerHTML;
-          current.parentNode?.replaceChild(em, current);
+        const textData = clipboardData.getData('text/plain');
+        if (textData) {
+          // Plain text: just insert it, converting line breaks to paragraphs
+          const lines = textData.split(/\r?\n/);
+          const cleanHtml = lines.map(l => l.trim() ? `<p>${l}</p>` : '<p></p>').join('');
+          window.dispatchEvent(new CustomEvent('tiptap-paste', { detail: { html: cleanHtml } }));
+          return true;
         }
 
-        if (fw === 'bold' || fw === '700' || parseInt(fw) >= 600) {
-          // Find the current node again after possible replacements
-          const el = root.querySelector('em') || current;
-          const strong = document.createElement('strong');
-          strong.innerHTML = current.innerHTML;
-          current.parentNode?.replaceChild(strong, current);
-        }
+        return false;
+      },
+    },
+    onUpdate({ editor }) {
+      const html = editor.getHTML();
+      const md = htmlToMarkdown(html, placeholders);
+      onChangeRef.current?.(md);
+    },
+  });
+
+  // Listen for paste events dispatched from handlePaste
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { html } = (e as CustomEvent).detail;
+      editor?.commands.insertContent(html, {
+        parseOptions: { preserveWhitespace: 'full' },
       });
     };
+    window.addEventListener('tiptap-paste', handler);
+    return () => window.removeEventListener('tiptap-paste', handler);
+  }, [editor]);
 
-    normalizeGoogleDocsSpans(tempDiv);
-
-    const walk = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return '';
-
-      const el = node as HTMLElement;
-
-      if (el.classList.contains('pill-chip')) {
-        return el.getAttribute('data-code') || '';
-      }
-
-      const tag = el.tagName.toLowerCase();
-
-      if (tag === 'ol') {
-        let result = '';
-        let index = 1;
-        el.childNodes.forEach(child => {
-          if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).tagName.toLowerCase() === 'li') {
-            let liContent = '';
-            child.childNodes.forEach(c => { liContent += walk(c); });
-            liContent = liContent.replace(/<div[^>]*>/g, '').replace(/<\/div>/g, '').trim();
-            result += `${index}. ${liContent}\n`;
-            index++;
-          }
-        });
-        return result;
-      }
-
-      if (tag === 'ul') {
-        let result = '';
-        el.childNodes.forEach(child => {
-          if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).tagName.toLowerCase() === 'li') {
-            let liContent = '';
-            child.childNodes.forEach(c => { liContent += walk(c); });
-            liContent = liContent.replace(/<div[^>]*>/g, '').replace(/<\/div>/g, '').trim();
-            result += `- ${liContent}\n`;
-          }
-        });
-        return result;
-      }
-
-      if (tag === 'li') {
-        let content = '';
-        el.childNodes.forEach(child => { content += walk(child); });
-        return content;
-      }
-
-      let content = '';
-      el.childNodes.forEach(child => {
-        content += walk(child);
-      });
-
-      const wrapInTags = (inner: string, start: string, end: string) => {
-        if (!inner || !inner.trim()) return inner || '';
-        const match = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
-        if (!match) return start + inner + end;
-        return `${match[1]}${start}${match[2]}${end}${match[3]}`;
-      };
-
-      if (tag === 'strong' || tag === 'b') return wrapInTags(content, '**', '**');
-      if (tag === 'em'     || tag === 'i') return wrapInTags(content, '*',  '*');
-      if (tag === 'u') return wrapInTags(content, '<u>', '</u>');
-
-      if (tag === 'h1') {
-        const align = el.style.textAlign;
-        const headerMd = `# ${content.trim()}`;
-        return (align && align !== 'left')
-          ? `<div style="text-align: ${align}">${headerMd}</div>\n`
-          : `${headerMd}\n`;
-      }
-      if (tag === 'h2') {
-        const align = el.style.textAlign;
-        const headerMd = `## ${content.trim()}`;
-        return (align && align !== 'left')
-          ? `<div style="text-align: ${align}">${headerMd}</div>\n`
-          : `${headerMd}\n`;
-      }
-
-      if (tag === 'p' || tag === 'div') {
-        const align = el.style.textAlign;
-        if (align && align !== 'left') {
-          return `<div style="text-align: ${align}">${content}</div>\n`;
-        }
-        return content ? `${content}\n` : '\n';
-      }
-
-      if (tag === 'br') return '\n';
-
-      if (tag === 'a') return content;
-
-      if (tag === 'meta' || tag === 'style' || tag === 'script') return '';
-
-      return content;
-    };
-
-    let markdown = walk(tempDiv);
-    return markdown.replace(/\n{3,}/g, '\n\n').trim();
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const editor = editorRef.current;
+  // Sync initialMarkdown changes
+  useEffect(() => {
     if (!editor) return;
-
-    // Try to get HTML from clipboard first
-    const htmlData = e.clipboardData.getData('text/html');
-
-    if (htmlData) {
-      // Clean Google Docs specific wrappers
-      let cleaned = htmlData
-        // Remove the outer <b id="docs-internal-guid-..."> wrapper Google Docs adds
-        .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
-        // Remove Google Docs meta tags
-        .replace(/<meta[^>]*>/gi, '')
-        // Remove style blocks
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-        // Remove Google Docs specific attributes
-        .replace(/\s*id="docs-internal-guid[^"]*"/gi, '')
-        // Normalise font-weight:700 spans to <strong>
-        .replace(/<span([^>]*)font-weight\s*:\s*(?:bold|700|600)([^>]*)>([\s\S]*?)<\/span>/gi,
-          '<strong>$3</strong>')
-        // Normalise font-style:italic spans to <em>
-        .replace(/<span([^>]*)font-style\s*:\s*italic([^>]*)>([\s\S]*?)<\/span>/gi,
-          '<em>$3</em>')
-        // Normalise text-decoration:underline spans to <u>
-        .replace(/<span([^>]*)text-decoration\s*:[^;]*underline([^>]*)>([\s\S]*?)<\/span>/gi,
-          '<u>$3</u>')
-        // Strip remaining empty spans
-        .replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1');
-
-      // Insert cleaned HTML
-      document.execCommand('insertHTML', false, cleaned);
-    } else {
-      // Fallback to plain text
-      const text = e.clipboardData.getData('text/plain');
-      document.execCommand('insertText', false, text);
+    const newHtml = markdownToHtml(initialMarkdown, placeholders);
+    const currentHtml = editor.getHTML();
+    // Only update if content differs to avoid cursor reset
+    if (newHtml !== currentHtml) {
+      editor.commands.setContent(newHtml, false);
     }
+  }, [initialMarkdown]); // eslint-disable-line
 
-    setTimeout(triggerChange, 0);
-  };
-
-  const cleanEditorHtml = (editor: HTMLElement) => {
-    editor.querySelectorAll('strong, b, em, i, u').forEach(tag => {
-      if (tag.textContent?.trim() === '' && tag.children.length === 0) {
-        tag.remove();
-      }
-    });
-  };
-
-  const applyFormat = (command: string, value: string | undefined = undefined) => {
-    const editor = editorRef.current;
+  const applyFormat = useCallback((command: string, value?: string) => {
     if (!editor) return;
-
-    const isFormatting  = ['bold', 'italic', 'underline'].includes(command);
-    const isAlignment   = ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'].includes(command);
-
-    if (isAlignment) {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        let container = selection.getRangeAt(0).startContainer;
-        const parent = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
-        const block = (parent as HTMLElement)?.closest('p, div, h1, h2');
-        if (block) {
-          const align = command.replace('justify', '').toLowerCase();
-          const finalAlign = align === 'full' ? 'justify' : (align === '' ? 'left' : align);
-          (block as HTMLElement).style.textAlign = finalAlign;
-        } else {
-          document.execCommand(command, false, value);
-        }
+    switch (command) {
+      case 'bold':        editor.chain().focus().toggleBold().run(); break;
+      case 'italic':      editor.chain().focus().toggleItalic().run(); break;
+      case 'underline':   editor.chain().focus().toggleUnderline().run(); break;
+      case 'formatBlock':
+        if (value === 'h1') editor.chain().focus().toggleHeading({ level: 1 }).run();
+        else if (value === 'h2') editor.chain().focus().toggleHeading({ level: 2 }).run();
+        else editor.chain().focus().setParagraph().run();
+        break;
+      case 'justifyLeft':   editor.chain().focus().setTextAlign('left').run(); break;
+      case 'justifyCenter': editor.chain().focus().setTextAlign('center').run(); break;
+      case 'justifyRight':  editor.chain().focus().setTextAlign('right').run(); break;
+      case 'justifyFull':   editor.chain().focus().setTextAlign('justify').run(); break;
+    }
+    // Trigger onChange after format
+    setTimeout(() => {
+      if (editor) {
+        const md = htmlToMarkdown(editor.getHTML(), placeholders);
+        onChangeRef.current?.(md);
       }
-    } else if (isFormatting) {
-      const pills = editor.querySelectorAll('.pill-chip');
-      pills.forEach(pill => pill.setAttribute('contenteditable', 'true'));
-      document.execCommand(command, false, value);
-      pills.forEach(pill => pill.setAttribute('contenteditable', 'false'));
-      cleanEditorHtml(editor);
-    } else {
-      document.execCommand(command, false, value);
-      cleanEditorHtml(editor);
-    }
-
-    editor.focus();
-    setTimeout(triggerChange, 0);
-  };
-
-  const triggerChange = () => {
-    if (onChange && editorRef.current) {
-      onChange(serializeHtmlToMarkdown(editorRef.current.innerHTML));
-    }
-  };
-
-  const insertHtmlAtSelection = (html: string, selection: Selection | null) => {
-    if (!selection || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-
-    let container = range.startContainer;
-    if (container.nodeType === Node.TEXT_NODE) {
-      container = container.parentNode as Element;
-    }
-    const closestPill = (container as Element)?.closest?.('.pill-chip');
-    if (closestPill) {
-      range.setStartAfter(closestPill);
-      range.collapse(true);
-    }
-
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    const fragment = document.createDocumentFragment();
-    let node;
-    while ((node = tempDiv.firstChild)) fragment.appendChild(node);
-    const spaceNode = document.createTextNode('\u200B');
-    fragment.appendChild(spaceNode);
-    range.deleteContents();
-    range.insertNode(fragment);
-    range.setStartAfter(spaceNode);
-    range.setEndAfter(spaceNode);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  };
+    }, 0);
+  }, [editor, placeholders]);
 
   useImperativeHandle(ref, () => ({
-    getMarkdown: () => editorRef.current ? serializeHtmlToMarkdown(editorRef.current.innerHTML) : '',
+    getMarkdown: () => {
+      if (!editor) return '';
+      return htmlToMarkdown(editor.getHTML(), placeholders);
+    },
     setMarkdown: (markdown: string) => {
-      if (editorRef.current) {
-        editorRef.current.innerHTML = parseMarkdownToHtml(markdown);
-      }
+      editor?.commands.setContent(markdownToHtml(markdown, placeholders), false);
     },
     insertVariable: (code: string, name: string) => {
-      const pillHtml = createPillHtml(code, name);
-      editorRef.current?.focus();
-      insertHtmlAtSelection(pillHtml, window.getSelection());
-      triggerChange();
+      editor?.chain().focus().insertContent(createPillHtml(code, name) + '\u200B').run();
+      setTimeout(() => {
+        const md = htmlToMarkdown(editor?.getHTML() ?? '', placeholders);
+        onChangeRef.current?.(md);
+      }, 0);
     },
-    applyFormat: (command: string, value: string | undefined = undefined) => {
-      applyFormat(command, value);
-    }
-  }));
-
-  useEffect(() => {
-    document.execCommand('defaultParagraphSeparator', false, 'p');
-    document.execCommand('styleWithCSS', false, 'false');
-    if (editorRef.current && initialMarkdown !== undefined) {
-      const currentMarkdown = serializeHtmlToMarkdown(editorRef.current.innerHTML);
-      if (initialMarkdown !== currentMarkdown) {
-        editorRef.current.innerHTML = parseMarkdownToHtml(initialMarkdown);
-      }
-    }
-  }, [initialMarkdown]);
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const data = e.dataTransfer.getData('application/json');
-    if (!data) return;
-    const variable = JSON.parse(data);
-    const pillHtml = createPillHtml(variable.code, variable.name);
-    let range: Range | null = null;
-    // @ts-ignore
-    if (document.caretPositionFromPoint) {
-      // @ts-ignore
-      const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-      if (pos) { range = document.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
-    }
-    // @ts-ignore
-    else if (document.caretRangeFromPoint) {
-      // @ts-ignore
-      range = document.caretRangeFromPoint(e.clientX, e.clientY);
-    }
-    if (range) {
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      insertHtmlAtSelection(pillHtml, window.getSelection());
-      triggerChange();
-    }
-  };
+    applyFormat,
+  }), [editor, applyFormat, placeholders]);
 
   return (
     <div className={`flex flex-col h-full min-h-0 ${className}`}>
@@ -436,18 +382,10 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
           <button onMouseDown={(e) => e.preventDefault()} onClick={() => applyFormat('justifyFull')} className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all" title="Justify"><AlignJustify className="w-4 h-4" /></button>
         </div>
       )}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={triggerChange}
-        onPaste={handlePaste}
-        onDrop={onDrop}
-        onDragOver={(e) => e.preventDefault()}
-        className="flex-1 p-8 bg-white overflow-y-auto outline-none text-[16px] text-gray-800 leading-relaxed white-space-pre-wrap cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:pointer-events-none empty:before:italic [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800 [&_p]:m-0 [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_u]:underline [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2 [&_li]:mb-1 min-h-0"
-        style={{ whiteSpace: 'pre-wrap', fontFamily: '"Times New Roman", Times, serif', textAlign: 'justify', textJustify: 'inter-word' }}
-        data-placeholder={placeholderText}
-        data-gramm="false"
+      <EditorContent
+        editor={editor}
+        className="flex-1 overflow-y-auto min-h-0"
+        style={{ display: 'flex', flexDirection: 'column' }}
       />
     </div>
   );

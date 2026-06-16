@@ -10,6 +10,51 @@ interface PDFData {
   content: string;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+const BASE_FONT_SIZE  = 12;        // pt
+const LINE_SPACING    = 1.15;      // multiplier (Word/Google Docs standard)
+const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.352778; // pt→mm: 1pt = 0.352778mm
+// Results in LINE_H ≈ 4.87 mm — tight, professional 1.15 spacing
+
+const MARGIN          = 19;        // mm
+const PAGE_W          = 210;       // A4 mm
+const PAGE_H          = 297;
+const CONTENT_W       = PAGE_W - MARGIN * 2;
+const BOTTOM_LIMIT    = PAGE_H - 30;
+const HEADER_Y        = 25;
+const CONTENT_START_Y = 35;
+const BULLET_INDENT   = 5.0;
+const BULLET_TEXT_X   = 10;
+const PARA_SPACING    = LINE_H * 0.5; // half-line gap between paragraphs
+
+// ── Unicode sanitizer ─────────────────────────────────────────────────────────
+function sanitizeForPDF(text: string): string {
+  return text
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013]/g,       '-')
+    .replace(/[\u2014]/g,       '--')
+    .replace(/[\u2026]/g,       '...')
+    .replace(/[\u00A0]/g,       ' ')
+    .replace(/[^\x00-\xFF]/g,   '');
+}
+
+// ── Inline style normalization: collapses all pasted style artifacts ───────────
+// Converts any inline <div style="text-align:..."> wrappers that Google Docs / Word paste in
+function normalizeInlineStyles(md: string): string {
+  // Replace <div style="text-align: X"> ... </div> single-line forms to our canonical form
+  return md
+    .replace(/<div\s+style="text-align:\s*(left|center|right|justify)[^"]*">([\s\S]*?)<\/div>/gi,
+      (_, align, inner) => {
+        const cleanInner = inner.trim();
+        if (!cleanInner) return '';
+        return `<div style="text-align:${align.toLowerCase()}">${cleanInner}</div>`;
+      })
+    // Remove stray Google Docs id attributes
+    .replace(/\s*id="docs-internal-guid[^"]*"/gi, '');
+}
+
+// ── Segment types ─────────────────────────────────────────────────────────────
 interface Segment {
   text: string;
   bold: boolean;
@@ -17,24 +62,26 @@ interface Segment {
   underline: boolean;
 }
 
-function sanitizeForPDF(text: string): string {
-  return text
-    .replace(/[\u2018\u2019]/g, "'")   
-    .replace(/[\u201C\u201D]/g, '"')   
-    .replace(/[\u2013]/g,       '-')   
-    .replace(/[\u2014]/g,       '--')  
-    .replace(/[\u2026]/g,       '...') 
-    .replace(/[\u00A0]/g,       ' ')  
-    .replace(/[^\x00-\xFF]/g,   '');   
+interface Token {
+  word: string;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
 }
- 
+
+// ── Parse inline markdown/HTML segments from a single line ───────────────────
 function parseInlineSegments(raw: string): Segment[] {
   const segments: Segment[] = [];
+
+  // Normalise HTML bold/italic to markdown markers first
   let normalised = sanitizeForPDF(raw)
     .replace(/<strong>([\s\S]*?)<\/strong>/gi, '**$1**')
     .replace(/<b>([\s\S]*?)<\/b>/gi, '**$1**')
     .replace(/<em>([\s\S]*?)<\/em>/gi, '*$1*')
     .replace(/<i>([\s\S]*?)<\/i>/gi, '*$1*');
+
+  // Remove any remaining stray HTML tags (but keep <u>...</u>)
+  normalised = normalised.replace(/<(?!u>|\/u>)[^>]+>/gi, '');
 
   const pattern = /\*\*\*([\s\S]*?)\*\*\*|\*\*([\s\S]*?)\*\*|\*([\s\S]*?)\*|<u>([\s\S]*?)<\/u>/g;
   let lastIndex = 0;
@@ -45,7 +92,7 @@ function parseInlineSegments(raw: string): Segment[] {
       segments.push({ text: normalised.slice(lastIndex, match.index), bold: false, italic: false, underline: false });
     if      (match[1] !== undefined) segments.push({ text: match[1], bold: true,  italic: true,  underline: false });
     else if (match[2] !== undefined) segments.push({ text: match[2], bold: true,  italic: false, underline: false });
-    else if (match[3] !== undefined) segments.push({ text: match[3], bold: false, italic: false, underline: false });
+    else if (match[3] !== undefined) segments.push({ text: match[3], bold: false, italic: true,  underline: false });
     else if (match[4] !== undefined) segments.push({ text: match[4], bold: false, italic: false, underline: true  });
     lastIndex = pattern.lastIndex;
   }
@@ -55,7 +102,7 @@ function parseInlineSegments(raw: string): Segment[] {
   return segments.filter(s => s.text.length > 0);
 }
 
-
+// ── Font setter ───────────────────────────────────────────────────────────────
 function setFont(doc: jsPDF, bold: boolean, italic: boolean, size: number) {
   doc.setFontSize(size);
   if (bold && italic)  doc.setFont('times', 'bolditalic');
@@ -64,39 +111,78 @@ function setFont(doc: jsPDF, bold: boolean, italic: boolean, size: number) {
   else                 doc.setFont('times', 'normal');
 }
 
-interface Tok { word: string; bold: boolean; italic: boolean; underline: boolean; }
-
-function segmentsToTokens(segments: Segment[]): Tok[] {
-  const tokens: Tok[] = [];
+// ── Segments → tokens (split on whitespace, preserve spaces as tokens) ────────
+function segmentsToTokens(segments: Segment[]): Token[] {
+  const tokens: Token[] = [];
   for (const seg of segments) {
-      for (const part of seg.text.split(/(\s+|\u00A0+)/)) {
-        if (part === '') continue;
-        const word = /^[\s\u00A0]+$/.test(part) ? ' ' : part;
-        tokens.push({ word, bold: seg.bold, italic: seg.italic, underline: seg.underline });
+    // Split on whitespace boundaries, keeping the whitespace as a separate token
+    const parts = seg.text.split(/(\s+)/);
+    for (const part of parts) {
+      if (part === '') continue;
+      tokens.push({ word: part, bold: seg.bold, italic: seg.italic, underline: seg.underline });
     }
   }
   return tokens;
 }
 
-function wrapTokens(doc: jsPDF, tokens: Tok[], maxWidth: number, fontSize: number): Tok[][] {
-  const rows: Tok[][] = [];
-  let row: Tok[] = [];
+// ── Word-wrap tokens to rows ──────────────────────────────────────────────────
+function wrapTokens(doc: jsPDF, tokens: Token[], maxWidth: number, fontSize: number): Token[][] {
+  const rows: Token[][] = [];
+  let row: Token[] = [];
   let rowW = 0;
+
   for (const tok of tokens) {
     setFont(doc, tok.bold, tok.italic, fontSize);
     const w = doc.getTextWidth(tok.word);
     const isSpace = /^\s+$/.test(tok.word);
-    if (!isSpace && rowW + w > maxWidth && row.length > 0) {
-      rows.push(row); row = [tok]; rowW = w;
+
+    if (!isSpace && rowW + w > maxWidth + 0.001 && row.length > 0) {
+      // Flush current row — trim trailing spaces first
+      while (row.length > 0 && /^\s+$/.test(row[row.length - 1].word)) row.pop();
+      rows.push(row);
+      row = [];
+      rowW = 0;
+      // Skip leading space on new row
+      if (!isSpace) { row.push(tok); rowW = w; }
     } else {
-      row.push(tok); rowW += w;
+      // Skip leading space at start of a new row
+      if (isSpace && row.length === 0) continue;
+      row.push(tok);
+      rowW += w;
     }
   }
+  // Last row
+  while (row.length > 0 && /^\s+$/.test(row[row.length - 1].word)) row.pop();
   if (row.length > 0) rows.push(row);
+
   return rows;
 }
 
-function renderRow(doc: jsPDF, row: Tok[], startX: number, y: number, fontSize: number) {
+// ── Calculate row width ───────────────────────────────────────────────────────
+function calcRowWidth(doc: jsPDF, row: Token[], fontSize: number): number {
+  return row.reduce((w, t) => {
+    setFont(doc, t.bold, t.italic, fontSize);
+    return w + doc.getTextWidth(sanitizeForPDF(t.word));
+  }, 0);
+}
+
+// ── Alignment X offset ───────────────────────────────────────────────────────
+function getAlignX(
+  align: 'left' | 'center' | 'right' | 'justify',
+  rowW: number,
+  margin: number,
+  contentW: number,
+  indentLeft = 0
+): number {
+  const avail = contentW - indentLeft;
+  const base  = margin + indentLeft;
+  if (align === 'center') return base + (avail - rowW) / 2;
+  if (align === 'right')  return base + avail - rowW;
+  return base;
+}
+
+// ── Render one row of tokens ──────────────────────────────────────────────────
+function renderRow(doc: jsPDF, row: Token[], startX: number, y: number, fontSize: number) {
   let x = startX;
   let ulStart: number | null = null;
   let inUl = false;
@@ -107,34 +193,27 @@ function renderRow(doc: jsPDF, row: Tok[], startX: number, y: number, fontSize: 
       doc.setLineWidth(0.25);
       doc.line(ulStart, y + 0.8, endX, y + 0.8);
     }
-    inUl = false; ulStart = null;
+    inUl = false;
+    ulStart = null;
   };
 
   for (const tok of row) {
     const isSpace = /^\s+$/.test(tok.word);
     setFont(doc, tok.bold, tok.italic, fontSize);
-    const safeWord = sanitizeForPDF(tok.word);
-    const w = doc.getTextWidth(safeWord);
-    if (!isSpace) doc.text(safeWord, x, y);
-    if (tok.underline) { if (!inUl) { ulStart = x; inUl = true; } }
-    else flushUl(x);
+    const safe = sanitizeForPDF(tok.word);
+    const w = doc.getTextWidth(safe);
+    if (!isSpace) doc.text(safe, x, y);
+    if (tok.underline) {
+      if (!inUl) { ulStart = x; inUl = true; }
+    } else {
+      flushUl(x);
+    }
     x += w;
   }
   flushUl(x);
 }
 
-function calcRowWidth(doc: jsPDF, row: Tok[], fontSize: number): number {
-  let w = 0;
-  row.forEach(t => { setFont(doc, t.bold, t.italic, fontSize);     w += doc.getTextWidth(sanitizeForPDF(t.word));});
-  return w;
-}
-
-function getAlignX(align: 'left' | 'center' | 'right' | 'justify', rowW: number, margin: number, contentW: number): number {
-  if (align === 'center') return margin + (contentW - rowW) / 2;
-  if (align === 'right')  return margin + contentW - rowW;
-  return margin;
-}
-
+// ── Render a full paragraph (wraps text, handles alignment, returns new Y) ────
 function renderParagraph(
   doc: jsPDF,
   text: string,
@@ -145,199 +224,244 @@ function renderParagraph(
   lineH: number,
   cursorY: number,
   bottomLimit: number,
-  indentLeft = 0 
+  indentLeft = 0
 ): number {
-  const usableW = contentW - indentLeft;
+  const usableW  = contentW - indentLeft;
   const segments = parseInlineSegments(text);
   const tokens   = segmentsToTokens(segments);
   const rows     = wrapTokens(doc, tokens, usableW, fontSize);
 
-  for (const row of rows) {
+  for (let ri = 0; ri < rows.length; ri++) {
     if (cursorY + lineH > bottomLimit) {
       doc.addPage();
-      cursorY = 35;
+      cursorY = CONTENT_START_Y;
     }
-    // Strip leading spaces
-    let started = false;
-    const trimmedRow = row.filter(t => {
-      if (!started && /^\s+$/.test(t.word)) return false;
-      started = true; return true;
-    });
 
-    const rw = calcRowWidth(doc, trimmedRow, fontSize);
-    const x  = align === 'left'
-      ? margin + indentLeft
-      : getAlignX(align, rw, margin + indentLeft, usableW);
+    const row = rows[ri];
+    const isLastRow = ri === rows.length - 1;
+    const rw = calcRowWidth(doc, row, fontSize);
 
-    renderRow(doc, trimmedRow, x, cursorY, fontSize);
+    let x: number;
+    if (align === 'justify' && !isLastRow && rows.length > 1) {
+      // Justified: distribute extra space between words
+      x = margin + indentLeft;
+      renderRowJustified(doc, row, x, cursorY, fontSize, usableW);
+    } else {
+      x = getAlignX(align, rw, margin, contentW, indentLeft);
+      renderRow(doc, row, x, cursorY, fontSize);
+    }
+
     cursorY += lineH;
   }
   return cursorY;
 }
 
+// ── Justified row rendering (distributes spaces evenly) ──────────────────────
+function renderRowJustified(
+  doc: jsPDF,
+  row: Token[],
+  startX: number,
+  y: number,
+  fontSize: number,
+  maxWidth: number
+) {
+  // Split into words and spaces
+  const wordTokens = row.filter(t => !/^\s+$/.test(t.word));
+  const totalWordW = wordTokens.reduce((w, t) => {
+    setFont(doc, t.bold, t.italic, fontSize);
+    return w + doc.getTextWidth(sanitizeForPDF(t.word));
+  }, 0);
+
+  const gaps = wordTokens.length - 1;
+  const spaceW = gaps > 0 ? (maxWidth - totalWordW) / gaps : 0;
+
+  let x = startX;
+  let ulStart: number | null = null;
+  let inUl = false;
+
+  const flushUl = (endX: number) => {
+    if (inUl && ulStart !== null) {
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.25);
+      doc.line(ulStart, y + 0.8, endX, y + 0.8);
+    }
+    inUl = false;
+    ulStart = null;
+  };
+
+  for (let i = 0; i < wordTokens.length; i++) {
+    const tok = wordTokens[i];
+    setFont(doc, tok.bold, tok.italic, fontSize);
+    const safe = sanitizeForPDF(tok.word);
+    const w = doc.getTextWidth(safe);
+    doc.text(safe, x, y);
+    if (tok.underline) {
+      if (!inUl) { ulStart = x; inUl = true; }
+    } else {
+      flushUl(x);
+    }
+    x += w;
+    if (i < wordTokens.length - 1) x += spaceW;
+  }
+  flushUl(x);
+}
+
+// ── Main PDF generator ────────────────────────────────────────────────────────
 export const generateRTIPDF = async (
   data: PDFData
 ): Promise<{ blob: Blob; fileName: string; finalMarkdown: string }> => {
   const { title, requestDate, sender, receiver, content: rawContent } = data;
-  const finalMarkdown = sanitizeForPDF(
-    replaceVariables(rawContent, requestDate, sender, receiver)
-  );
+
+  // 1. Replace variables, sanitize, normalize inline styles
+  const resolved = replaceVariables(rawContent, requestDate, sender, receiver);
+  const finalMarkdown = normalizeInlineStyles(sanitizeForPDF(resolved));
+
+  // 2. Create document
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const margin      = 19;
-  const pageWidth   = 210;
-  const pageHeight  = 297;
-  const contentW    = pageWidth - margin * 2;
-  const bottomLimit = pageHeight - 30;
-  const LINE_H      = 8;
-  const BASE_SIZE   = 12;
-  const BULLET_INDENT  = 5.0;
-  const BULLET_TEXT_X  = 10;
-
-  let cursorY = 42;
-
-  const ensureSpace = (needed: number) => {
-    if (cursorY + needed > bottomLimit) { doc.addPage(); cursorY = 42; }
-  };
-  
   doc.setFont('times', 'normal');
-  doc.setFontSize(BASE_SIZE);
+  doc.setFontSize(BASE_FONT_SIZE);
   doc.setTextColor(0, 0, 0);
   doc.setCharSpace(0);
 
+  let cursorY = CONTENT_START_Y;
+  let activeAlign: 'left' | 'center' | 'right' | 'justify' = 'justify'; // default justify
+
+  const ensureSpace = (needed: number) => {
+    if (cursorY + needed > BOTTOM_LIMIT) {
+      doc.addPage();
+      cursorY = CONTENT_START_Y;
+    }
+  };
+
+  // 3. Process markdown lines
   const rawLines = finalMarkdown.split('\n');
-  let activeAlign: 'left' | 'center' | 'right' | 'justify' = 'left';
 
   for (const line of rawLines) {
     let trimmed = line.trim();
 
+    // ── Inline single-line <div style="text-align:X">content</div> ────────────
     const inlineDivMatch = trimmed.match(
       /^<div[^>]*text-align:\s*(left|center|right|justify)[^>]*>([\s\S]*?)<\/div>$/i
     );
     if (inlineDivMatch) {
-      const divAlign  = inlineDivMatch[1].toLowerCase() as 'left' | 'center' | 'right'| 'justify';
+      const divAlign  = inlineDivMatch[1].toLowerCase() as 'left' | 'center' | 'right' | 'justify';
       const divContent = inlineDivMatch[2].trim();
-      if (divContent === '') { cursorY += 4; continue; }  // empty alignment div → gap
-      cursorY = renderParagraph(doc, divContent, divAlign, margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit);
-      cursorY += 1;
+      if (!divContent) { cursorY += PARA_SPACING; continue; }
+      cursorY = renderParagraph(doc, divContent, divAlign, MARGIN, CONTENT_W, BASE_FONT_SIZE, LINE_H, cursorY, BOTTOM_LIMIT);
+      cursorY += PARA_SPACING;
       continue;
     }
 
-    // Case 2: opening div only  <div style="text-align: X">  (multiline block)
+    // ── Opening <div style="text-align:X"> ────────────────────────────────────
     const openDivMatch = trimmed.match(/^<div[^>]*text-align:\s*(left|center|right|justify)[^>]*>$/i);
     if (openDivMatch) {
-      activeAlign = openDivMatch[1].toLowerCase() as 'left' | 'center' | 'right'| 'justify';
+      activeAlign = openDivMatch[1].toLowerCase() as 'left' | 'center' | 'right' | 'justify';
       continue;
     }
 
-    // Case 3: closing div — reset alignment
-    if (trimmed === '</div>') { activeAlign = 'left'; continue; }
+    // ── Closing </div> ────────────────────────────────────────────────────────
+    if (trimmed === '</div>') { activeAlign = 'justify'; continue; }
 
-    //  Strip any remaining stray div tags 
+    // Strip stray div tags
     trimmed = trimmed.replace(/<div[^>]*>/g, '').replace(/<\/div>/g, '').trim();
 
-    // Empty line
-    if (trimmed === '') { cursorY += 4; continue; }
+    // ── Empty line → paragraph gap ─────────────────────────────────────────────
+    if (!trimmed) { cursorY += PARA_SPACING; continue; }
 
-    // Heading 
+    // ── Headings ──────────────────────────────────────────────────────────────
     const hMatch = trimmed.match(/^(#{1,6})\s+(.*)/);
     if (hMatch) {
-      const level      = hMatch[1].length;
-      const raw        = hMatch[2];
-      const hSize      = level === 1 ? 16 : level === 2 ? 14 : level === 3 ? 13 : 12;
-      const spaceAbove = level === 1 ? 8  : level === 2 ? 5  : 3;
-      const spaceBelow = level === 1 ? 4  : 2;
-      const hLineH     = hSize * 0.45;
+      const level  = hMatch[1].length;
+      const raw    = hMatch[2];
+      const hSize  = level === 1 ? 16 : level === 2 ? 14 : 12;
+      const hLineH = hSize * LINE_SPACING * 0.352778;
+      const above  = level === 1 ? LINE_H * 1.5 : LINE_H * 0.8;
+      const below  = level === 1 ? LINE_H * 0.6 : LINE_H * 0.4;
 
       const segs   = parseInlineSegments(raw).map(s => ({ ...s, bold: true }));
       const tokens = segmentsToTokens(segs);
-      const rows   = wrapTokens(doc, tokens, contentW, hSize);
+      const rows   = wrapTokens(doc, tokens, CONTENT_W, hSize);
 
-      ensureSpace(spaceAbove + rows.length * hLineH + spaceBelow);
-      cursorY += spaceAbove;
+      ensureSpace(above + rows.length * hLineH + below);
+      cursorY += above;
 
       for (const row of rows) {
         const rw = calcRowWidth(doc, row, hSize);
-        const x  = getAlignX(activeAlign, rw, margin, contentW);
+        const x  = getAlignX(activeAlign, rw, MARGIN, CONTENT_W);
         renderRow(doc, row, x, cursorY, hSize);
         cursorY += hLineH;
       }
-      cursorY += spaceBelow;
+      cursorY += below;
       continue;
     }
 
-    // ── Unordered list ───────────────────────────────────────────────────────
+    // ── Unordered list item ────────────────────────────────────────────────────
     const ulMatch = trimmed.match(/^[-*•]\s+(.*)/);
     if (ulMatch) {
       const itemText = ulMatch[1];
       ensureSpace(LINE_H + 1);
-      setFont(doc, false, false, BASE_SIZE);
-      doc.text('\u2022', margin + BULLET_INDENT, cursorY);
-      cursorY = renderParagraph(doc, itemText, 'left', margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit, BULLET_TEXT_X);
-      cursorY += 1;
+      setFont(doc, false, false, BASE_FONT_SIZE);
+      doc.text('\u2022', MARGIN + BULLET_INDENT, cursorY);
+      cursorY = renderParagraph(doc, itemText, 'left', MARGIN, CONTENT_W, BASE_FONT_SIZE, LINE_H, cursorY, BOTTOM_LIMIT, BULLET_TEXT_X);
+      cursorY += PARA_SPACING * 0.5;
       continue;
     }
 
-    // ── Ordered list ─────────────────────────────────────────────────────────
+    // ── Ordered list item ──────────────────────────────────────────────────────
     const olMatch = trimmed.match(/^(\d+)[.)]\s+(.*)/);
     if (olMatch) {
       const num      = olMatch[1] + '.';
       const itemText = olMatch[2];
       ensureSpace(LINE_H + 1);
-      setFont(doc, false, false, BASE_SIZE);
-      doc.text(num, margin + BULLET_INDENT, cursorY);
-      cursorY = renderParagraph(doc, itemText, 'left', margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit, BULLET_TEXT_X);
-      cursorY += 1;
+      setFont(doc, false, false, BASE_FONT_SIZE);
+      doc.text(num, MARGIN + BULLET_INDENT, cursorY);
+      cursorY = renderParagraph(doc, itemText, 'left', MARGIN, CONTENT_W, BASE_FONT_SIZE, LINE_H, cursorY, BOTTOM_LIMIT, BULLET_TEXT_X);
+      cursorY += PARA_SPACING * 0.5;
       continue;
     }
 
-    // ── Regular paragraph ───────────────────────────────────────────────────
-    cursorY = renderParagraph(doc, trimmed, activeAlign, margin, contentW, BASE_SIZE, LINE_H, cursorY, bottomLimit);
-    cursorY += 1;
-  } 
+    // ── Regular paragraph ──────────────────────────────────────────────────────
+    cursorY = renderParagraph(doc, trimmed, activeAlign, MARGIN, CONTENT_W, BASE_FONT_SIZE, LINE_H, cursorY, BOTTOM_LIMIT);
+    cursorY += PARA_SPACING;
+  }
 
-  // ── Multi-Page Running Layout Pass (Headers & Footers) ──────────────────────
+  // ── Headers & Footers (unchanged) ────────────────────────────────────────────
   const pageCount = doc.getNumberOfPages();
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    
-    // 1. Stamp Running Header Components
-    try { 
-       doc.addImage('/logo_header.png', 'PNG', margin, 10, 45, 12); 
-    } catch { 
-       console.warn('Logo asset link missing.'); 
+
+    // Logo
+    try {
+      doc.addImage('/logo_header.png', 'PNG', MARGIN, 10, 45, 12);
+    } catch {
+      console.warn('Logo asset missing.');
     }
 
-    // Top Separator line (Corrected to Y=25)
+    // Header separator
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.1);
-    doc.line(margin, 25, pageWidth - margin, 25);
+    doc.line(MARGIN, HEADER_Y, PAGE_W - MARGIN, HEADER_Y);
 
-    // 2. Stamp Running Footer Components
-    const footerYLine = pageHeight - 16; 
-    const footerYText = pageHeight - 10; 
-    
-    // Draw Footer Separator line
+    // Footer separator
+    const footerYLine = PAGE_H - 16;
+    const footerYText = PAGE_H - 10;
     doc.setDrawColor(220, 220, 220);
     doc.setLineWidth(0.1);
-    doc.line(margin, footerYLine, pageWidth - margin, footerYLine);
+    doc.line(MARGIN, footerYLine, PAGE_W - MARGIN, footerYLine);
 
-    // Render Company Metadata Address Details 
+    // Footer text
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0); 
-    
-    const footerText = "GA 00000000  | Hill Street, Dehiwela, Sri Lanka  |  +94 70 xxxxxxx  |  contact@datafoundation.lk";
-    
-    // Auto-center the footer text completely
-    const textWidth = doc.getTextWidth(footerText);
-    const footerX = (pageWidth - textWidth) / 2;
-    
-    doc.text(footerText, footerX, footerYText);
+    doc.setTextColor(0, 0, 0);
+    const footerText = 'GA 00000000  | Hill Street, Dehiwela, Sri Lanka  |  +94 70 xxxxxxx  |  contact@datafoundation.lk';
+    const textWidth  = doc.getTextWidth(footerText);
+    doc.text(footerText, (PAGE_W - textWidth) / 2, footerYText);
 
+    // Reset font for next page content pass
     doc.setFont('times', 'normal');
-    doc.setFontSize(BASE_SIZE);
+    doc.setFontSize(BASE_FONT_SIZE);
     doc.setTextColor(0, 0, 0);
     doc.setCharSpace(0);
   }
