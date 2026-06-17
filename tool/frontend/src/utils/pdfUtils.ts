@@ -12,7 +12,7 @@ interface PDFData {
 
 const BASE_FONT_SIZE  = 12;
 const LINE_SPACING    = 1.15;
-const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.352778;
+const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.442778;
 const MARGIN          = 19;
 const PAGE_W          = 210;
 const PAGE_H          = 297;
@@ -460,7 +460,7 @@ export const generateRTIPDF = async (
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
-    const footerText = 'GA 00000000  | Hill Street, Dehiwela, Sri Lanka  |  +94 70 xxxxxxx  |  contact@datafoundation.lk';
+    const footerText = 'GA 00231106  | 248/201 Hill Street, Dehiwela, Sri Lanka  |  +94 70 3729895  |  contact@datafoundation.lk';
     const textWidth  = doc.getTextWidth(footerText);
     doc.text(footerText, (PAGE_W - textWidth) / 2, footerYText);
 

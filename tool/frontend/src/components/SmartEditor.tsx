@@ -83,10 +83,6 @@ const VariablePill = Node.create({
   },
 });
 
-// ✅ ADDED: PageBreak custom node
-// Renders as a visible dashed line in the editor.
-// Serialises to <div class="page-break"></div> in getHTML()
-// so pdfUtils can detect it and call doc.addPage().
 const PageBreakView = ({ deleteNode }: any) => (
   <NodeViewWrapper>
     <div
@@ -192,8 +188,6 @@ function htmlToMarkdown(
     const tag = el.tagName.toLowerCase();
     if (['script', 'style', 'meta'].includes(tag)) return '';
 
-    // ✅ ADDED: page break serialisation — output a special marker line
-    // that pdfUtils detects to trigger doc.addPage()
     if (tag === 'div' && (el.classList.contains('page-break') || el.getAttribute('data-page-break') === 'true')) {
       return '<!--PAGE_BREAK-->\n';
     }
@@ -245,17 +239,6 @@ function htmlToMarkdown(
     }
     if (tag === 'li') return children();
 
-    // ✅ FIXED: wrap() now applies the open/close marker to each line
-    // independently instead of once around the whole concatenated string.
-    // Without this, a stray outer <b>/<strong> that spans multiple
-    // paragraphs (very common when pasting from Word, Google Docs, or
-    // some PDFs — these often wrap the entire selection in a bold tag as
-    // a formatting-reset artifact, not because the text is actually bold)
-    // would produce a single "**" glued to the very start of the document
-    // and a lone, unmatched "**" glued to the very end — since the two
-    // markers end up on different lines, line-based re-parsing (in
-    // markdownToHtml and in pdfUtils' parseInlineSegments) can never pair
-    // them up, so they print as literal asterisks instead of bolding.
     const wrap = (inner: string, o: string, c: string) => {
       return inner
         .split('\n')
@@ -307,7 +290,6 @@ function markdownToHtml(
   while (i < lines.length) {
     const line = lines[i];
 
-    // ✅ ADDED: restore page break marker back to the custom div
     if (line.trim() === '<!--PAGE_BREAK-->') {
       html += '<div class="page-break" data-page-break="true" style="page-break-after:always;"></div>';
       i++;
@@ -377,12 +359,6 @@ function markdownToHtml(
 function cleanPastedHtml(raw: string): string {
   return raw
     .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
-    // ✅ ADDED: Word's HTML clipboard export often wraps the *entire*
-    // pasted body in <b style="mso-bidi-font-weight:normal">. This is
-    // purely a formatting-reset artifact from Word's RTF→HTML conversion
-    // — it does not mean the content is actually bold — so strip it the
-    // same way the Google Docs wrapper above is stripped, before it can
-    // get mistaken for a real bold mark by htmlToMarkdown.
     .replace(/<b\s+style="[^"]*font-weight:\s*normal[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
     .replace(/<meta[^>]*>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -415,7 +391,7 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
         UnderlineExtension,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         VariablePill,
-        PageBreak, // ✅ ADDED
+        PageBreak, 
       ],
       content: markdownToHtml(initialMarkdown, placeholders),
       editorProps: {
@@ -533,7 +509,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
       [editor]
     );
 
-    // ✅ ADDED: insert page break at cursor position
     const insertPageBreak = useCallback(() => {
       editor?.chain().focus().insertContent({ type: 'pageBreak' }).run();
       setTimeout(() => {
@@ -571,7 +546,7 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             <ToolbarBtn title="Align Center" onClick={() => applyFormat('justifyCenter')}> <AlignCenter  className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Align Right"  onClick={() => applyFormat('justifyRight')}>  <AlignRight   className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Justify"      onClick={() => applyFormat('justifyFull')}>   <AlignJustify className="w-4 h-4" /></ToolbarBtn>
-            {/* ✅ ADDED: Page Break button */}
+            {/* ADDED: Page Break button */}
             <div className="w-px h-4 bg-gray-200 mx-1" />
             <button
               title="Insert Page Break"
