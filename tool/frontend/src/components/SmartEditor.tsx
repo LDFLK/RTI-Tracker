@@ -458,6 +458,13 @@ const PREVIEW_CSS = `
     margin: ${PARA_SPACING_MM}mm 0;
     padding-left: 10mm;
   }
+  .pdf-page-content ul, .pdf-page-content ol {
+    margin: ${PARA_SPACING_MM}mm 0;
+    padding-left: 10mm;
+    list-style-position: outside;
+  }
+  .pdf-page-content ol { list-style-type: decimal; }
+  .pdf-page-content ul { list-style-type: disc; }
   .pdf-page-content li { margin-bottom: 2mm; }
   .pdf-page-content[data-placeholder]:empty::before {
     content: attr(data-placeholder);

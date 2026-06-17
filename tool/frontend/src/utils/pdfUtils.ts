@@ -32,56 +32,7 @@ const BULLET_INDENT   = 5.0;
 const BULLET_TEXT_X   = 10;
 const PARA_SPACING    = LINE_H * 0.5;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// FONT PARITY
-//
-// jsPDF's built-in 'times' is the Adobe standard-14 "Times-Roman" — it is
-// NOT the same outline data as the browser's "Times New Roman", even though
-// the names look interchangeable. Different outlines mean different glyph
-// widths, which means doc.getTextWidth() in jsPDF and the browser's text
-// layout engine will disagree on exactly where a line wraps. Since page
-// breaks are just "N wrapped lines deep", a wrap mismatch is what causes
-// the editor's page-break preview to drift from the real PDF even after
-// the mm-layout fix in SmartEditor.tsx.
-//
-// The fix is to stop using jsPDF's built-in font and instead embed the same
-// font family the editor renders with. We recommend Tinos (open-source,
-// metric-compatible with Times New Roman, so it wraps identically to the
-// "Times New Roman"/Tinos stack used in SmartEditor.tsx's PREVIEW_CSS) —
-// NOT Times New Roman itself, which is a proprietary Microsoft font you
-// can't legally embed/redistribute in a web app.
-//
-// To finish wiring this up:
-//   1. Obtain the four Tinos weights as TTF (regular/bold/italic/bolditalic).
-//   2. Base64-encode each file and export them as string constants, e.g. from
-//      a generated `tinosFontData.ts` (don't fetch them at runtime — embed
-//      them at build time so PDF generation doesn't depend on network access).
-//   3. Uncomment the import and registerTinosFont() call below.
-//   4. Flip PDF_FONT_FAMILY to 'Tinos'.
-//
-// Until that's done, PDF_FONT_FAMILY stays 'times' and the editor/PDF font
-// metrics will be close but not pixel-identical — the mm-layout fix alone
-// already gets the page breaks much closer than before.
-// ─────────────────────────────────────────────────────────────────────────────
 const PDF_FONT_FAMILY: 'times' | 'Tinos' = 'times';
-
-// import {
-//   TINOS_REGULAR,
-//   TINOS_BOLD,
-//   TINOS_ITALIC,
-//   TINOS_BOLDITALIC,
-// } from './tinosFontData';
-//
-// function registerTinosFont(doc: jsPDF) {
-//   doc.addFileToVFS('Tinos-Regular.ttf', TINOS_REGULAR);
-//   doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal');
-//   doc.addFileToVFS('Tinos-Bold.ttf', TINOS_BOLD);
-//   doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold');
-//   doc.addFileToVFS('Tinos-Italic.ttf', TINOS_ITALIC);
-//   doc.addFont('Tinos-Italic.ttf', 'Tinos', 'italic');
-//   doc.addFileToVFS('Tinos-BoldItalic.ttf', TINOS_BOLDITALIC);
-//   doc.addFont('Tinos-BoldItalic.ttf', 'Tinos', 'bolditalic');
-// }
 
 function sanitizeForPDF(text: string): string {
   return text
