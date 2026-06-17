@@ -16,6 +16,9 @@ import StarterKit from '@tiptap/starter-kit';
 import UnderlineExtension from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VARIABLE PILL
+// ─────────────────────────────────────────────────────────────────────────────
 const PillView = ({ node, deleteNode }: any) => (
   <NodeViewWrapper as="span" style={{ display: 'inline' }}>
     <span
@@ -83,6 +86,9 @@ const VariablePill = Node.create({
   },
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE BREAK NODE
+// ─────────────────────────────────────────────────────────────────────────────
 const PageBreakView = ({ deleteNode }: any) => (
   <NodeViewWrapper>
     <div
@@ -96,14 +102,9 @@ const PageBreakView = ({ deleteNode }: any) => (
       }}
     >
       <span style={{
-        background: 'white',
-        padding: '0 8px',
-        color: '#94a3b8',
-        fontSize: '11px',
-        fontFamily: 'sans-serif',
-        position: 'relative',
-        top: '-10px',
-        userSelect: 'none',
+        background: 'white', padding: '0 8px', color: '#94a3b8',
+        fontSize: '11px', fontFamily: 'sans-serif',
+        position: 'relative', top: '-10px', userSelect: 'none',
       }}>
         — Page Break —
       </span>
@@ -111,8 +112,7 @@ const PageBreakView = ({ deleteNode }: any) => (
         onClick={deleteNode}
         style={{
           position: 'absolute', right: 0, top: '-9px',
-          cursor: 'pointer', color: '#94a3b8', fontSize: '12px',
-          padding: '0 4px',
+          cursor: 'pointer', color: '#94a3b8', fontSize: '12px', padding: '0 4px',
         }}
         title="Remove page break"
       >×</span>
@@ -141,6 +141,9 @@ const PageBreak = Node.create({
   },
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
 export interface SmartEditorRef {
   getMarkdown: () => string;
   setMarkdown: (markdown: string) => void;
@@ -157,6 +160,9 @@ interface SmartEditorProps {
   showToolbar?: boolean;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// INLINE MARKDOWN HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
 function applyInlineMarkdown(text: string): string {
   if (/<(strong|em|b|i)\b/.test(text)) return text;
   return text
@@ -166,6 +172,9 @@ function applyInlineMarkdown(text: string): string {
     .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HTML → MARKDOWN
+// ─────────────────────────────────────────────────────────────────────────────
 function htmlToMarkdown(
   html: string,
   _placeholders: Record<string, string> = {}
@@ -190,6 +199,11 @@ function htmlToMarkdown(
 
     if (tag === 'div' && (el.classList.contains('page-break') || el.getAttribute('data-page-break') === 'true')) {
       return '<!--PAGE_BREAK-->\n';
+    }
+
+    // Skip injected page-line divs so they don't pollute the markdown
+    if (el.classList.contains('pdf-page-line')) {
+      return '';
     }
 
     const children = (): string =>
@@ -240,14 +254,9 @@ function htmlToMarkdown(
     if (tag === 'li') return children();
 
     const wrap = (inner: string, o: string, c: string) => {
-      return inner
-        .split('\n')
-        .map(line => {
-          const m = line.match(/^(\s*)([\s\S]*?)(\s*)$/);
-          if (!m || !m[2]) return line; // leave blank lines untouched
-          return `${m[1]}${o}${m[2]}${c}${m[3]}`;
-        })
-        .join('\n');
+      if (inner.includes('\n')) return inner;
+      const m = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      return m ? `${m[1]}${o}${m[2]}${c}${m[3]}` : `${o}${inner}${c}`;
     };
 
     if (tag === 'strong' || tag === 'b') return wrap(children(), '**', '**');
@@ -272,6 +281,9 @@ function htmlToMarkdown(
   return md;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKDOWN → HTML
+// ─────────────────────────────────────────────────────────────────────────────
 function pillSpan(code: string, name: string): string {
   return `<span data-variable="${code}" data-name="${name}"></span>`;
 }
@@ -356,6 +368,9 @@ function markdownToHtml(
   return html;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE CLEANER
+// ─────────────────────────────────────────────────────────────────────────────
 function cleanPastedHtml(raw: string): string {
   return raw
     .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
@@ -370,6 +385,90 @@ function cleanPastedHtml(raw: string): string {
     .replace(/[ \t]{2,}/g, ' ');
 }
 
+// PDF LAYOUT CONSTANTS — SOURCE OF TRUTH IS pdfUtils.ts
+//
+// These values MUST be kept byte-for-byte identical to the constants at the
+// top of pdfUtils.ts. They are duplicated here (rather than imported) only
+// because the two files may live in different build targets; if your build
+// allows a shared module, move this whole block into e.g. `pdfLayout.ts`
+// and import it from both files instead of hand-syncing two copies.
+
+const PAGE_W_MM          = 210;            // jsPDF format: 'a4' → 210mm wide
+const PAGE_H_MM          = 297;            // a4 height
+const MARGIN_MM          = 19;             // pdfUtils.ts MARGIN
+const CONTENT_START_Y_MM = 35;             // pdfUtils.ts CONTENT_START_Y
+const BOTTOM_LIMIT_MM    = PAGE_H_MM - 30; // pdfUtils.ts BOTTOM_LIMIT (267)
+const USABLE_H_MM        = BOTTOM_LIMIT_MM - CONTENT_START_Y_MM; // 232mm/page
+
+const BASE_FONT_PT   = 12;                 // pdfUtils.ts BASE_FONT_SIZE
+const LINE_SPACING   = 1.15;               // pdfUtils.ts LINE_SPACING
+// pdfUtils.ts: LINE_H = BASE_FONT_SIZE * LINE_SPACING * 0.442778 (pt → mm line box)
+const LINE_H_MM       = BASE_FONT_PT * LINE_SPACING * 0.442778;
+const PARA_SPACING_MM = LINE_H_MM * 0.5;   // pdfUtils.ts PARA_SPACING
+
+const H1_SIZE_PT = 18;
+const H2_SIZE_PT = 16;
+// pdfUtils.ts heading line-height conversion uses 0.352778 (pt → mm), not 0.442778
+const H1_LINE_MM = H1_SIZE_PT * LINE_SPACING * 0.352778;
+const H2_LINE_MM = H2_SIZE_PT * LINE_SPACING * 0.352778;
+
+// CSS mm is an absolute unit: 1mm = 96/25.4 px, always — no measuring needed.
+const MM_TO_PX = 96 / 25.4;
+
+
+const PREVIEW_CSS = `
+  .pdf-page-content {
+    box-sizing: border-box;
+    width: ${PAGE_W_MM}mm;
+    min-height: ${PAGE_H_MM}mm;
+    margin: 0 auto;
+    padding: ${CONTENT_START_Y_MM}mm ${MARGIN_MM}mm ${PAGE_H_MM - BOTTOM_LIMIT_MM}mm;
+    font-family: 'Tinos', 'Times New Roman', Times, serif;
+    font-size: ${BASE_FONT_PT}pt;
+    line-height: ${LINE_H_MM}mm;
+    color: #1f2937;
+    text-align: justify;
+    text-justify: inter-word;
+    white-space: pre-wrap;
+    background: #ffffff;
+    cursor: text;
+    outline: none;
+  }
+  .pdf-page-content p {
+    margin: 0 0 ${PARA_SPACING_MM}mm 0;
+  }
+  .pdf-page-content h1 {
+    font-size: ${H1_SIZE_PT}pt;
+    line-height: ${H1_LINE_MM}mm;
+    font-weight: bold;
+    color: inherit;
+    margin: ${LINE_H_MM * 1.5}mm 0 ${LINE_H_MM * 0.6}mm 0;
+  }
+  .pdf-page-content h2 {
+    font-size: ${H2_SIZE_PT}pt;
+    line-height: ${H2_LINE_MM}mm;
+    font-weight: bold;
+    color: inherit;
+    margin: ${LINE_H_MM * 0.8}mm 0 ${LINE_H_MM * 0.4}mm 0;
+  }
+  .pdf-page-content strong { font-weight: bold; }
+  .pdf-page-content em { font-style: italic; }
+  .pdf-page-content u { text-decoration: underline; }
+  .pdf-page-content ul, .pdf-page-content ol {
+    margin: ${PARA_SPACING_MM}mm 0;
+    padding-left: 10mm;
+  }
+  .pdf-page-content li { margin-bottom: 2mm; }
+  .pdf-page-content[data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
+  }
+`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SMARTEDITOR COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
 export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
   ({
     initialMarkdown = '',
@@ -385,29 +484,27 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
     const placeholdersRef = useRef(placeholders);
     useEffect(() => { placeholdersRef.current = placeholders; }, [placeholders]);
 
+    // Ref for the scroll container that wraps EditorContent
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // ── Editor ───────────────────────────────────────────────────────────────
     const editor = useEditor({
       extensions: [
         StarterKit.configure({ heading: { levels: [1, 2] }, hardBreak: false }),
         UnderlineExtension,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         VariablePill,
-        PageBreak, 
+        PageBreak,
       ],
       content: markdownToHtml(initialMarkdown, placeholders),
       editorProps: {
         attributes: {
-          class: [
-            'flex-1 p-8 bg-white overflow-y-auto outline-none text-base text-gray-800 leading-relaxed cursor-text',
-            '[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900',
-            '[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800',
-            '[&_p]:m-0 [&_p]:leading-[1.15] [&_strong]:font-bold [&_em]:italic [&_u]:underline',
-            '[&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2',
-            '[&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2',
-            '[&_li]:mb-1',
-          ].join(' '),
-          style:
-            'font-family:"Times New Roman",Times,serif;white-space:pre-wrap;' +
-            'text-align:justify;text-justify:inter-word;line-height:1.15;',
+          // All real styling now lives in PREVIEW_CSS (`.pdf-page-content`),
+          // which mirrors pdfUtils.ts in real mm/pt units. The old Tailwind
+          // class list + inline `style:` string here used fluid/rem-based
+          // sizing that had no fixed relationship to the PDF's mm geometry,
+          // which is what made the page-break preview drift.
+          class: 'pdf-page-content',
           'data-placeholder': placeholderText,
         },
 
@@ -449,20 +546,121 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
 
       onUpdate({ editor: e }) {
         onChangeRef.current?.(htmlToMarkdown(e.getHTML(), placeholdersRef.current));
+        updatePageLines();
       },
     });
 
+    // ── Page boundary lines ──────────────────────────────────────────────────
+    // We inject lines into the scroll container (which we own) so they scroll
+    // with the content. Because the ProseMirror root is now laid out in real
+    // mm (via PREVIEW_CSS) instead of a fluid Tailwind layout, the px-per-mm
+    // ratio is the fixed constant MM_TO_PX — there is nothing left to measure
+    // or infer, which is what made the old version wrong on different screen
+    // widths/zoom levels.
+    const updatePageLines = useCallback(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const proseMirror = container.querySelector('.ProseMirror') as HTMLElement | null;
+      if (!proseMirror) return;
+
+      // Remove old lines
+      container.querySelectorAll('.pdf-page-line').forEach(el => el.remove());
+
+      const pageHeightPx   = USABLE_H_MM * MM_TO_PX;          // 232mm of usable text per page
+      const firstPageTopPx = CONTENT_START_Y_MM * MM_TO_PX;   // matches PREVIEW_CSS padding-top
+      const totalHeight    = proseMirror.scrollHeight;
+      const topOffset      = proseMirror.offsetTop;
+
+      // The first page break sits one "usable height" below the top padding.
+      // Every subsequent break is purely +232mm: the 65mm header/footer gap
+      // that exists between physical PDF pages is an artifact of doc.addPage()
+      // (a fresh CONTENT_START_Y) — it doesn't consume any editor scroll space,
+      // so it must not be added again for page 3, 4, etc.
+      let pageY   = firstPageTopPx + pageHeightPx;
+      let pageNum = 2;
+
+      while (pageY < totalHeight) {
+        const line = document.createElement('div');
+        line.className = 'pdf-page-line';
+        line.style.cssText = `
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: ${topOffset + pageY}px;
+          border-top: 2px dashed #94a3b8;
+          pointer-events: none;
+          z-index: 10;
+        `;
+
+        const label = document.createElement('span');
+        label.style.cssText = `
+          position: absolute;
+          right: 8px;
+          top: 2px;
+          font-size: 10px;
+          color: #94a3b8;
+          font-family: sans-serif;
+          background: white;
+          padding: 0 6px;
+          border-radius: 4px;
+          white-space: nowrap;
+          pointer-events: none;
+        `;
+        label.textContent = `page ${pageNum} starts here`;
+
+        line.appendChild(label);
+        container.appendChild(line);
+
+        pageY += pageHeightPx;
+        pageNum++;
+      }
+    }, []);
+
+    // Run on mount
+    useEffect(() => {
+      if (!editor) return;
+      const timer = setTimeout(updatePageLines, 150);
+      return () => clearTimeout(timer);
+    }, [editor, updatePageLines]);
+
+    // Re-run when initialMarkdown changes externally
+    useEffect(() => {
+      const timer = setTimeout(updatePageLines, 150);
+      return () => clearTimeout(timer);
+    }, [initialMarkdown, updatePageLines]);
+
+    // Also re-run on window resize. With fixed mm sizing this matters less
+    // than before (the page itself no longer resizes with the viewport),
+    // but the scroll container height/visible area can still change.
+    useEffect(() => {
+      const onResize = () => updatePageLines();
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, [updatePageLines]);
+
+    // Re-run once web fonts finish loading. If "Tinos" (or any custom font)
+    // loads asynchronously, line heights/wrap points can shift slightly
+    // after the initial 150ms measurement — re-measuring after fonts are
+    // ready avoids a stale set of page-break lines.
+    useEffect(() => {
+      if (typeof document === 'undefined' || !('fonts' in document)) return;
+      (document as any).fonts?.ready?.then(() => updatePageLines());
+    }, [updatePageLines]);
+
+    // ── Event listeners ──────────────────────────────────────────────────────
     useEffect(() => {
       const handler = (e: Event) => {
         const { html } = (e as CustomEvent<{ html: string }>).detail;
         editor?.commands.insertContent(html, { parseOptions: { preserveWhitespace: 'full' } });
         setTimeout(() => {
           if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
         }, 0);
       };
       window.addEventListener('smarteditor:insert', handler);
       return () => window.removeEventListener('smarteditor:insert', handler);
-    }, [editor]);
+    }, [editor, updatePageLines]);
 
     useEffect(() => {
       const handler = (e: Event) => {
@@ -470,21 +668,24 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
         editor?.chain().focus().insertContent({ type: 'variablePill', attrs: { code, name } }).run();
         setTimeout(() => {
           if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
         }, 0);
       };
       window.addEventListener('smarteditor:insertNode', handler);
       return () => window.removeEventListener('smarteditor:insertNode', handler);
-    }, [editor]);
+    }, [editor, updatePageLines]);
 
     useEffect(() => {
       if (!editor) return;
       const newHtml = markdownToHtml(initialMarkdown, placeholdersRef.current);
       if (newHtml !== editor.getHTML()) {
         editor.commands.setContent(newHtml);
+        setTimeout(updatePageLines, 150);
       }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialMarkdown]);
 
+    // ── Format commands ──────────────────────────────────────────────────────
     const applyFormat = useCallback(
       (command: string, value?: string) => {
         if (!editor) return;
@@ -504,35 +705,43 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
         }
         setTimeout(() => {
           if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
         }, 0);
       },
-      [editor]
+      [editor, updatePageLines]
     );
 
+    // ── Page break insert ────────────────────────────────────────────────────
     const insertPageBreak = useCallback(() => {
       editor?.chain().focus().insertContent({ type: 'pageBreak' }).run();
       setTimeout(() => {
         if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+        updatePageLines();
       }, 0);
-    }, [editor]);
+    }, [editor, updatePageLines]);
 
     useImperativeHandle(ref, () => ({
       getMarkdown: () =>
         editor ? htmlToMarkdown(editor.getHTML(), placeholdersRef.current) : '',
       setMarkdown: (markdown: string) => {
         editor?.commands.setContent(markdownToHtml(markdown, placeholdersRef.current));
+        setTimeout(updatePageLines, 150);
       },
       insertVariable: (code: string, name: string) => {
         editor?.chain().focus().insertContent({ type: 'variablePill', attrs: { code, name } }).run();
         setTimeout(() => {
           if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
         }, 0);
       },
       applyFormat,
-    }), [editor, applyFormat]);
+    }), [editor, applyFormat, updatePageLines]);
 
+    // ── Render ───────────────────────────────────────────────────────────────
     return (
       <div className={`flex flex-col h-full min-h-0 ${className}`}>
+        <style>{PREVIEW_CSS}</style>
+
         {showToolbar && (
           <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50 flex-shrink-0 flex-wrap">
             <ToolbarBtn title="Bold"        onClick={() => applyFormat('bold')}>            <Bold        className="w-4 h-4" /></ToolbarBtn>
@@ -546,7 +755,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             <ToolbarBtn title="Align Center" onClick={() => applyFormat('justifyCenter')}> <AlignCenter  className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Align Right"  onClick={() => applyFormat('justifyRight')}>  <AlignRight   className="w-4 h-4" /></ToolbarBtn>
             <ToolbarBtn title="Justify"      onClick={() => applyFormat('justifyFull')}>   <AlignJustify className="w-4 h-4" /></ToolbarBtn>
-            {/* ADDED: Page Break button */}
             <div className="w-px h-4 bg-gray-200 mx-1" />
             <button
               title="Insert Page Break"
@@ -559,11 +767,28 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
             </button>
           </div>
         )}
-        <EditorContent
-          editor={editor}
-          className="flex-1 overflow-y-auto min-h-0"
-          style={{ display: 'flex', flexDirection: 'column' }}
-        />
+
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {
+            
+          }
+          <div
+            ref={scrollContainerRef}
+            style={{
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              background: '#e2e8f0',
+              padding: '24px 0',
+            }}
+          >
+            <EditorContent
+              editor={editor}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            />
+          </div>
+        </div>
       </div>
     );
   }

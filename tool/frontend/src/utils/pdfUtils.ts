@@ -10,6 +10,14 @@ interface PDFData {
   content: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// LAYOUT CONSTANTS — SOURCE OF TRUTH FOR SmartEditor.tsx
+//
+// These are the canonical values. SmartEditor.tsx's PREVIEW_CSS / page-break
+// math duplicates them in mm/pt; if you change anything here, change it
+// there too (or better, move both copies into one shared module that both
+// files import).
+// ─────────────────────────────────────────────────────────────────────────────
 const BASE_FONT_SIZE  = 12;
 const LINE_SPACING    = 1.15;
 const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.442778;
@@ -23,6 +31,57 @@ const CONTENT_START_Y = 35;
 const BULLET_INDENT   = 5.0;
 const BULLET_TEXT_X   = 10;
 const PARA_SPACING    = LINE_H * 0.5;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FONT PARITY
+//
+// jsPDF's built-in 'times' is the Adobe standard-14 "Times-Roman" — it is
+// NOT the same outline data as the browser's "Times New Roman", even though
+// the names look interchangeable. Different outlines mean different glyph
+// widths, which means doc.getTextWidth() in jsPDF and the browser's text
+// layout engine will disagree on exactly where a line wraps. Since page
+// breaks are just "N wrapped lines deep", a wrap mismatch is what causes
+// the editor's page-break preview to drift from the real PDF even after
+// the mm-layout fix in SmartEditor.tsx.
+//
+// The fix is to stop using jsPDF's built-in font and instead embed the same
+// font family the editor renders with. We recommend Tinos (open-source,
+// metric-compatible with Times New Roman, so it wraps identically to the
+// "Times New Roman"/Tinos stack used in SmartEditor.tsx's PREVIEW_CSS) —
+// NOT Times New Roman itself, which is a proprietary Microsoft font you
+// can't legally embed/redistribute in a web app.
+//
+// To finish wiring this up:
+//   1. Obtain the four Tinos weights as TTF (regular/bold/italic/bolditalic).
+//   2. Base64-encode each file and export them as string constants, e.g. from
+//      a generated `tinosFontData.ts` (don't fetch them at runtime — embed
+//      them at build time so PDF generation doesn't depend on network access).
+//   3. Uncomment the import and registerTinosFont() call below.
+//   4. Flip PDF_FONT_FAMILY to 'Tinos'.
+//
+// Until that's done, PDF_FONT_FAMILY stays 'times' and the editor/PDF font
+// metrics will be close but not pixel-identical — the mm-layout fix alone
+// already gets the page breaks much closer than before.
+// ─────────────────────────────────────────────────────────────────────────────
+const PDF_FONT_FAMILY: 'times' | 'Tinos' = 'times';
+
+// import {
+//   TINOS_REGULAR,
+//   TINOS_BOLD,
+//   TINOS_ITALIC,
+//   TINOS_BOLDITALIC,
+// } from './tinosFontData';
+//
+// function registerTinosFont(doc: jsPDF) {
+//   doc.addFileToVFS('Tinos-Regular.ttf', TINOS_REGULAR);
+//   doc.addFont('Tinos-Regular.ttf', 'Tinos', 'normal');
+//   doc.addFileToVFS('Tinos-Bold.ttf', TINOS_BOLD);
+//   doc.addFont('Tinos-Bold.ttf', 'Tinos', 'bold');
+//   doc.addFileToVFS('Tinos-Italic.ttf', TINOS_ITALIC);
+//   doc.addFont('Tinos-Italic.ttf', 'Tinos', 'italic');
+//   doc.addFileToVFS('Tinos-BoldItalic.ttf', TINOS_BOLDITALIC);
+//   doc.addFont('Tinos-BoldItalic.ttf', 'Tinos', 'bolditalic');
+// }
 
 function sanitizeForPDF(text: string): string {
   return text
@@ -114,10 +173,10 @@ function parseInlineSegments(raw: string): Segment[] {
 
 function setFont(doc: jsPDF, bold: boolean, italic: boolean, size: number) {
   doc.setFontSize(size);
-  if (bold && italic)  doc.setFont('times', 'bolditalic');
-  else if (bold)       doc.setFont('times', 'bold');
-  else if (italic)     doc.setFont('times', 'italic');
-  else                 doc.setFont('times', 'normal');
+  if (bold && italic)  doc.setFont(PDF_FONT_FAMILY, 'bolditalic');
+  else if (bold)       doc.setFont(PDF_FONT_FAMILY, 'bold');
+  else if (italic)     doc.setFont(PDF_FONT_FAMILY, 'italic');
+  else                 doc.setFont(PDF_FONT_FAMILY, 'normal');
 }
 
 function segmentsToTokens(segments: Segment[]): Token[] {
@@ -307,7 +366,12 @@ export const generateRTIPDF = async (
   const finalMarkdown = normalizeInlineStyles(sanitizeForPDF(stripped));
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  doc.setFont('times', 'normal');
+
+  // If/when Tinos embedding is wired up (see the FONT PARITY note above),
+  // call registerTinosFont(doc) here, before any font is selected below.
+  // registerTinosFont(doc);
+
+  doc.setFont(PDF_FONT_FAMILY, 'normal');
   doc.setFontSize(BASE_FONT_SIZE);
   doc.setTextColor(0, 0, 0);
   doc.setCharSpace(0);
@@ -327,8 +391,10 @@ export const generateRTIPDF = async (
   for (const line of rawLines) {
     let trimmed = line.trim();
 
-    // ✅ ADDED: Page break marker — start a fresh page immediately
-    // SmartEditor serialises the PageBreak node as <!--PAGE_BREAK-->
+    // Page break marker — start a fresh page immediately, resetting Y back
+    // to CONTENT_START_Y. SmartEditor serialises the PageBreak node as
+    // <!--PAGE_BREAK-->, and this is the one place that translation is
+    // consumed — already correctly mapped to doc.addPage(), no change needed.
     if (trimmed === '<!--PAGE_BREAK-->') {
       doc.addPage();
       cursorY = CONTENT_START_Y;
@@ -457,6 +523,9 @@ export const generateRTIPDF = async (
     doc.setLineWidth(0.1);
     doc.line(MARGIN, footerYLine, PAGE_W - MARGIN, footerYLine);
 
+    // Footer disclaimer text isn't part of the wrap-matching that page-break
+    // accuracy depends on, so it intentionally stays on 'helvetica' rather
+    // than PDF_FONT_FAMILY.
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(0, 0, 0);
@@ -464,7 +533,7 @@ export const generateRTIPDF = async (
     const textWidth  = doc.getTextWidth(footerText);
     doc.text(footerText, (PAGE_W - textWidth) / 2, footerYText);
 
-    doc.setFont('times', 'normal');
+    doc.setFont(PDF_FONT_FAMILY, 'normal');
     doc.setFontSize(BASE_FONT_SIZE);
     doc.setTextColor(0, 0, 0);
     doc.setCharSpace(0);
