@@ -10,8 +10,10 @@ interface PDFData {
   content: string;
 }
 
-
-//If values here are changed change in SmartEditor.tsx's PREVIEW_CSS / page-break too
+// These are the canonical values. SmartEditor.tsx's PREVIEW_CSS / page-break
+// math duplicates them in mm/pt; if you change anything here, change it
+// there too (or better, move both copies into one shared module that both
+// files import).
 const BASE_FONT_SIZE  = 12;
 const LINE_SPACING    = 1.15;
 const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.442778;
@@ -307,15 +309,25 @@ export const generateRTIPDF = async (
 ): Promise<{ blob: Blob; fileName: string; finalMarkdown: string }> => {
   const { title, requestDate, sender, receiver, content: rawContent } = data;
 
+  const logoData = await new Promise<string | null>((resolve) => {
+    const img = new Image();
+    img.src = '/logo_header.png';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(null);
+  });
+
   const resolved      = replaceVariables(rawContent, requestDate, sender, receiver);
   const stripped      = stripPillHtml(resolved);
   const finalMarkdown = normalizeInlineStyles(sanitizeForPDF(stripped));
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-  // If/when Tinos embedding is wired up (see the FONT PARITY note above),
-  // call registerTinosFont(doc) here, before any font is selected below.
-  // registerTinosFont(doc);
 
   doc.setFont(PDF_FONT_FAMILY, 'normal');
   doc.setFontSize(BASE_FONT_SIZE);
@@ -334,16 +346,9 @@ export const generateRTIPDF = async (
 
   const rawLines = finalMarkdown.split('\n');
 
-  // Use an indexed for loop so rawLines[i + 1] is O(1). A for...of loop with
-  // rawLines.indexOf(line) inside is O(N²) and also returns the wrong index
-  // when duplicate lines exist (indexOf always finds the first occurrence).
   for (let i = 0; i < rawLines.length; i++) {
     let trimmed = rawLines[i].trim();
 
-    // Page break marker — start a fresh page immediately, resetting Y back
-    // to CONTENT_START_Y. SmartEditor serialises the PageBreak node as
-    // <!--PAGE_BREAK-->, and this is the one place that translation is
-    // consumed — already correctly mapped to doc.addPage(), no change needed.
     if (trimmed === '<!--PAGE_BREAK-->') {
       doc.addPage();
       cursorY = CONTENT_START_Y;
@@ -456,10 +461,12 @@ export const generateRTIPDF = async (
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
-    try {
-      doc.addImage('/logo_header.png', 'PNG', MARGIN, 10, 45, 12);
-    } catch {
-      console.warn('Logo asset missing.');
+    if (logoData) {
+      try {
+        doc.addImage(logoData, 'PNG', MARGIN, 10, 45, 12);
+      } catch {
+        console.warn('Logo render failed.');
+      }
     }
 
     doc.setDrawColor(220, 220, 220);
