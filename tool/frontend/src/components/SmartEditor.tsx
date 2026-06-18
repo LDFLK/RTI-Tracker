@@ -371,18 +371,58 @@ function markdownToHtml(
 // ─────────────────────────────────────────────────────────────────────────────
 // PASTE CLEANER
 // ─────────────────────────────────────────────────────────────────────────────
+// DOM-based cleaner — avoids the regex catch-all span strip that would destroy
+// variable pill spans (data-variable / data-name attributes). Each node type
+// is handled explicitly; unknown spans are unwrapped, not deleted.
 function cleanPastedHtml(raw: string): string {
-  return raw
-    .replace(/<b\s+id="docs-internal-guid[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
-    .replace(/<b\s+style="[^"]*font-weight:\s*normal[^"]*"[^>]*>([\s\S]*?)<\/b>/gi, '$1')
-    .replace(/<meta[^>]*>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/\s*id="docs-internal-guid[^"]*"/gi, '')
-    .replace(/<span([^>]*)font-weight\s*:\s*(?:bold|700|800|600)([^>]*)>([\s\S]*?)<\/span>/gi, '<strong>$3</strong>')
-    .replace(/<span([^>]*)font-style\s*:\s*italic([^>]*)>([\s\S]*?)<\/span>/gi, '<em>$3</em>')
-    .replace(/<span([^>]*)text-decoration\s*:[^;]*underline([^>]*)>([\s\S]*?)<\/span>/gi, '<u>$3</u>')
-    .replace(/<span[^>]*>([\s\S]*?)<\/span>/gi, '$1')
-    .replace(/[ \t]{2,}/g, ' ');
+  const div = document.createElement('div');
+  div.innerHTML = raw;
+
+  // Remove elements that contribute no content
+  div.querySelectorAll('meta, style').forEach(el => el.remove());
+
+  // Unwrap Google Docs wrapper: <b id="docs-internal-guid-...">
+  div.querySelectorAll('b[id^="docs-internal-guid"]').forEach(el => {
+    el.replaceWith(...Array.from(el.childNodes));
+  });
+
+  // Unwrap cosmetic <b> tags that carry font-weight:normal (Google Docs artefact)
+  div.querySelectorAll<HTMLElement>('b[style]').forEach(el => {
+    if (/font-weight\s*:\s*normal/i.test(el.getAttribute('style') ?? '')) {
+      el.replaceWith(...Array.from(el.childNodes));
+    }
+  });
+
+  // Process spans: preserve variable pills, promote inline styles to semantic
+  // elements, then unwrap anything that's left. Work on a snapshot of the
+  // NodeList because replaceWith mutates the DOM mid-iteration.
+  Array.from(div.querySelectorAll<HTMLElement>('span')).forEach(span => {
+    // Preserve variable pills — never touch these
+    if (span.hasAttribute('data-variable') || span.hasAttribute('data-name')) return;
+
+    const style = span.getAttribute('style') ?? '';
+    const children = Array.from(span.childNodes);
+
+    if (/font-weight\s*:\s*(bold|[6-9]\d{2})/i.test(style)) {
+      const strong = document.createElement('strong');
+      strong.append(...children);
+      span.replaceWith(strong);
+    } else if (/font-style\s*:\s*italic/i.test(style)) {
+      const em = document.createElement('em');
+      em.append(...children);
+      span.replaceWith(em);
+    } else if (/text-decoration\s*:[^;]*underline/i.test(style)) {
+      const u = document.createElement('u');
+      u.append(...children);
+      span.replaceWith(u);
+    } else {
+      // Plain span with no meaningful style — unwrap it
+      span.replaceWith(...children);
+    }
+  });
+
+  // Collapse runs of whitespace introduced by unwrapping
+  return div.innerHTML.replace(/[ \t]{2,}/g, ' ');
 }
 
 // PDF LAYOUT CONSTANTS — SOURCE OF TRUTH IS pdfUtils.ts
