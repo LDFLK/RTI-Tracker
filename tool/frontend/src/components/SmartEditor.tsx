@@ -821,9 +821,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
         )}
 
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {
-            
-          }
           <div
             ref={scrollContainerRef}
             style={{
