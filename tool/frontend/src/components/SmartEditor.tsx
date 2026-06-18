@@ -494,6 +494,11 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
     // Ref for the scroll container that wraps EditorContent
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+    // Debounce timer ref for updatePageLines — prevents layout thrashing on
+    // every keystroke by coalescing rapid calls into a single update that
+    // fires once the user pauses typing.
+    const pageLineDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     // ── Editor ───────────────────────────────────────────────────────────────
     const editor = useEditor({
       extensions: [
@@ -553,17 +558,11 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
 
       onUpdate({ editor: e }) {
         onChangeRef.current?.(htmlToMarkdown(e.getHTML(), placeholdersRef.current));
-        updatePageLines();
+        debouncedUpdatePageLines();
       },
     });
 
     // ── Page boundary lines ──────────────────────────────────────────────────
-    // We inject lines into the scroll container (which we own) so they scroll
-    // with the content. Because the ProseMirror root is now laid out in real
-    // mm (via PREVIEW_CSS) instead of a fluid Tailwind layout, the px-per-mm
-    // ratio is the fixed constant MM_TO_PX — there is nothing left to measure
-    // or infer, which is what made the old version wrong on different screen
-    // widths/zoom levels.
     const updatePageLines = useCallback(() => {
       const container = scrollContainerRef.current;
       if (!container) return;
@@ -579,11 +578,6 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
       const totalHeight    = proseMirror.scrollHeight;
       const topOffset      = proseMirror.offsetTop;
 
-      // The first page break sits one "usable height" below the top padding.
-      // Every subsequent break is purely +232mm: the 65mm header/footer gap
-      // that exists between physical PDF pages is an artifact of doc.addPage()
-      // (a fresh CONTENT_START_Y) — it doesn't consume any editor scroll space,
-      // so it must not be added again for page 3, 4, etc.
       let pageY   = firstPageTopPx + pageHeightPx;
       let pageNum = 2;
 
@@ -624,6 +618,22 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
       }
     }, []);
 
+    // Debounced wrapper — used in onUpdate (keystroke path) to avoid reading
+    // scrollHeight and writing DOM nodes on every character typed.
+    // Discrete actions (insertPageBreak, applyFormat, insertVariable) call
+    // updatePageLines directly since they are not keystroke-rate events.
+    const debouncedUpdatePageLines = useCallback(() => {
+      if (pageLineDebounceRef.current) clearTimeout(pageLineDebounceRef.current);
+      pageLineDebounceRef.current = setTimeout(updatePageLines, 100);
+    }, [updatePageLines]);
+
+    // Clean up any pending debounce timer on unmount
+    useEffect(() => {
+      return () => {
+        if (pageLineDebounceRef.current) clearTimeout(pageLineDebounceRef.current);
+      };
+    }, []);
+
     // Run on mount
     useEffect(() => {
       if (!editor) return;
@@ -637,19 +647,14 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
       return () => clearTimeout(timer);
     }, [initialMarkdown, updatePageLines]);
 
-    // Also re-run on window resize. With fixed mm sizing this matters less
-    // than before (the page itself no longer resizes with the viewport),
-    // but the scroll container height/visible area can still change.
+    // Also re-run on window resize.
     useEffect(() => {
       const onResize = () => updatePageLines();
       window.addEventListener('resize', onResize);
       return () => window.removeEventListener('resize', onResize);
     }, [updatePageLines]);
 
-    // Re-run once web fonts finish loading. If "Tinos" (or any custom font)
-    // loads asynchronously, line heights/wrap points can shift slightly
-    // after the initial 150ms measurement — re-measuring after fonts are
-    // ready avoids a stale set of page-break lines.
+    // Re-run once web fonts finish loading.
     useEffect(() => {
       if (typeof document === 'undefined' || !('fonts' in document)) return;
       (document as any).fonts?.ready?.then(() => updatePageLines());
