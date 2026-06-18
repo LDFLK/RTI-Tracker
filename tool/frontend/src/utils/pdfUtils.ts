@@ -461,11 +461,11 @@ export const generateRTIPDF = async (
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
 
-    if (logoData) {
+     if (logoData) {
       try {
         doc.addImage(logoData, 'PNG', MARGIN, 10, 45, 12);
-      } catch {
-        console.warn('Logo render failed.');
+      } catch (e) {
+        console.warn('Failed to add logo to PDF:', e);
       }
     }
 
