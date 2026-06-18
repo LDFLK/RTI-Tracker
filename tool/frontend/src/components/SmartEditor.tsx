@@ -1,6 +1,154 @@
-import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Bold, Italic, Underline, Heading1, Heading2, Type, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import React, {
+  useRef,
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useCallback,
+} from 'react';
+import {
+  Bold, Italic, Underline, Heading1, Heading2, Type,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+} from 'lucide-react';
+import {
+  useEditor, EditorContent, Node, mergeAttributes, ReactNodeViewRenderer, NodeViewWrapper,
+} from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import UnderlineExtension from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VARIABLE PILL
+// ─────────────────────────────────────────────────────────────────────────────
+const PillView = ({ node, deleteNode }: any) => (
+  <NodeViewWrapper
+    as="span"
+    style={{ display: 'inline' }}
+    data-variable={node.attrs.code}
+    data-name={node.attrs.name}
+  >
+    <span
+      contentEditable={false}
+      style={{
+        display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle',
+        padding: '1px 6px', margin: '0 2px', borderRadius: '6px',
+        fontSize: '0.75rem', background: '#dbeafe', color: '#1e40af',
+        border: '1px solid #bfdbfe', cursor: 'default', userSelect: 'none',
+        fontWeight: 600, lineHeight: 1.6, whiteSpace: 'nowrap',
+      }}
+    >
+      <span>{node.attrs.name}</span>
+      <span
+        onClick={deleteNode}
+        style={{
+          marginLeft: '4px', cursor: 'pointer', fontWeight: 'bold',
+          borderRadius: '9999px', width: '14px', height: '14px',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '10px', lineHeight: 1, color: '#1e40af',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = '#bfdbfe')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      >×</span>
+    </span>
+  </NodeViewWrapper>
+);
+
+const VariablePill = Node.create({
+  name: 'variablePill',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+  draggable: false,
+  addAttributes() {
+    return {
+      code: { default: '' },
+      name: { default: '' },
+    };
+  },
+  parseHTML() {
+    return [{
+      tag: 'span[data-variable]',
+      getAttrs: dom => ({
+        code: (dom as HTMLElement).getAttribute('data-variable'),
+        name: (dom as HTMLElement).getAttribute('data-name'),
+      }),
+    }];
+  },
+  renderHTML({ node }) {
+    return [
+      'span',
+      mergeAttributes({
+        'data-variable': node.attrs.code || '',
+        'data-name': node.attrs.name || '',
+        class: 'variable-pill',
+        contenteditable: 'false',
+      }),
+      node.attrs.name || '',
+    ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(PillView);
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAGE BREAK NODE
+// ─────────────────────────────────────────────────────────────────────────────
+const PageBreakView = ({ deleteNode }: any) => (
+  <NodeViewWrapper>
+    <div
+      contentEditable={false}
+      style={{
+        borderTop: '2px dashed #94a3b8',
+        margin: '12px 0',
+        position: 'relative',
+        textAlign: 'center',
+        cursor: 'default',
+      }}
+    >
+      <span style={{
+        background: 'white', padding: '0 8px', color: '#94a3b8',
+        fontSize: '11px', fontFamily: 'sans-serif',
+        position: 'relative', top: '-10px', userSelect: 'none',
+      }}>
+        — Page Break —
+      </span>
+      <span
+        onClick={deleteNode}
+        style={{
+          position: 'absolute', right: 0, top: '-9px',
+          cursor: 'pointer', color: '#94a3b8', fontSize: '12px', padding: '0 4px',
+        }}
+        title="Remove page break"
+      >×</span>
+    </div>
+  </NodeViewWrapper>
+);
+
+const PageBreak = Node.create({
+  name: 'pageBreak',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: false,
+  parseHTML() {
+    return [{ tag: 'div.page-break' }];
+  },
+  renderHTML() {
+    return ['div', {
+      class: 'page-break',
+      'data-page-break': 'true',
+      style: 'page-break-after:always;',
+    }];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(PageBreakView);
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────────────────────────
 export interface SmartEditorRef {
   getMarkdown: () => string;
   setMarkdown: (markdown: string) => void;
@@ -17,449 +165,747 @@ interface SmartEditorProps {
   showToolbar?: boolean;
 }
 
-export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(({
-  initialMarkdown = '',
-  onChange,
-  placeholders = {},
-  className = '',
-  placeholderText = 'Start typing...',
-  showToolbar = true
-}, ref) => {
-  const editorRef = useRef<HTMLDivElement>(null);
+// Stable reference used as the default for the `placeholders` prop. A plain
+// `{}` literal in a default parameter is re-created on every call, which
+// would make React's effect-dependency check see a "new" value on every
+// render even when no caller-supplied placeholders ever change.
+const EMPTY_PLACEHOLDERS: Record<string, string> = {};
 
-  const createPillHtml = (code: string, name: string) => {
-    return `<span class="pill-chip inline-flex items-center px-2 py-0.5 mx-1 rounded-md text-xs bg-blue-100 text-blue-800 border border-blue-200 select-none cursor-default" data-code="${code}" contenteditable="false" style="vertical-align: middle; display: inline-flex; font-weight: inherit; font-style: inherit; text-decoration: inherit;">` +
-      `<span style="font-weight: inherit; font-style: inherit;">${name}</span>` +
-      `<span class="pill-remove ml-1 hover:bg-blue-300 rounded-full w-4 h-4 flex items-center justify-center cursor-pointer transition-colors" onclick="this.parentElement.remove()" style="font-weight: bold; font-style: normal;">×</span>` +
-      `</span>`;
-  };
+// ─────────────────────────────────────────────────────────────────────────────
+// INLINE MARKDOWN HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function applyInlineMarkdown(text: string): string {
+  if (/<(strong|em|b|i)\b/.test(text)) return text;
+  return text
+    .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*(?!\*)([\s\S]+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
+}
 
-  const parseMarkdownToHtml = (markdown: string) => {
-    if (!markdown || markdown.trim() === '') return '';
+// ─────────────────────────────────────────────────────────────────────────────
+// HTML → MARKDOWN
+// ─────────────────────────────────────────────────────────────────────────────
+function htmlToMarkdown(
+  html: string,
+  _placeholders: Record<string, string> = {}
+): string {
+  const div = document.createElement('div');
+  div.innerHTML = html;
 
-    const normalizedMarkdown = markdown.replace(/^(\s*)\*\s+(.*)$/gm, '$1- $2');
-    const lines = normalizedMarkdown.split('\n');
-    let html = '';
-    let i = 0;
+  function walkNode(node: globalThis.Node): string {
+    if (node.nodeType === globalThis.Node.TEXT_NODE) {
+      return (node.textContent ?? '').replace(/[ \t]+/g, ' ');
+    }
+    if (node.nodeType !== globalThis.Node.ELEMENT_NODE) return '';
 
-    while (i < lines.length) {
-      const line = lines[i];
+    const el = node as HTMLElement;
 
-      // Numbered list items (1. item, 2. item, etc.)
-      const olMatch = line.match(/^\d+\.\s+(.*)/);
-      if (olMatch) {
-        html += '<ol>';
-        while (i < lines.length) {
-          const lm = lines[i].match(/^\d+\.\s+(.*)/);
-          if (!lm) break;
-          html += `<li>${lm[1]}</li>`;
-          i++;
-        }
-        html += '</ol>';
-        continue;
-      }
-
-      // Bulleted list items (- item)
-      const ulMatch = line.match(/^-\s+(.*)/);
-      if (ulMatch) {
-        html += '<ul>';
-        while (i < lines.length) {
-          const lm = lines[i].match(/^-\s+(.*)/);
-          if (!lm) break;
-          html += `<li>${lm[1]}</li>`;
-          i++;
-        }
-        html += '</ul>';
-        continue;
-      }
-
-      // Alignment blocks and Headings
-      if (line.startsWith('<div style="text-align:') || line.trim() === '</div>') {
-        html += line;
-      } else if (line.startsWith('# ')) {
-        html += `<h1>${line.slice(2)}</h1>`;
-      } else if (line.startsWith('## ')) {
-        html += `<h2>${line.slice(3)}</h2>`;
-      } else if (line.trim()) {
-        html += `<p>${line}</p>`;
-      } else {
-        // Empty line — preserve as a blank paragraph
-        html += `<p><br></p>`;
-      }
-      i++;
+    if (el.hasAttribute('data-variable')) {
+      return el.getAttribute('data-variable') ?? '';
     }
 
-    // Handle Bold & Italic BEFORE variables
-    html = html.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-    html = html.replace(/<u>(.*?)<\/u>/g, '<u>$1</u>');
+    const tag = el.tagName.toLowerCase();
+    if (['script', 'style', 'meta'].includes(tag)) return '';
 
-    // Handle variables (pills) LAST
-    html = html.replace(/{{([^}]+)}}/g, (match) => {
-      const code = match.trim();
-      const cleanLabel = code.replace(/{{|}}/g, '').trim();
-      const name = placeholders[code] || cleanLabel.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      return createPillHtml(code, name);
-    });
+    if (tag === 'div' && (el.classList.contains('page-break') || el.getAttribute('data-page-break') === 'true')) {
+      return '<!--PAGE_BREAK-->\n';
+    }
 
-    return html;
-  };
+    // Skip injected page-line divs so they don't pollute the markdown
+    if (el.classList.contains('pdf-page-line')) {
+      return '';
+    }
 
-  const serializeHtmlToMarkdown = (html: string) => {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+    const children = (): string =>
+      Array.from(el.childNodes).map(walkNode).join('');
 
-    const walk = (node: Node): string => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
-      }
-      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    if (tag === 'br') return '\n';
 
-      const el = node as HTMLElement;
+    if (tag === 'p' || tag === 'div') {
+      const align = el.style?.textAlign;
+      const inner = children().trim();
+      if (!inner) return '\n';
+      return align && align !== 'left'
+        ? `<div style="text-align:${align}">${inner}</div>\n`
+        : `${inner}\n`;
+    }
 
-      // For pills: return just the data-code, don't recurse
-      if (el.classList.contains('pill-chip')) {
-        return el.getAttribute('data-code') || '';
-      }
+    if (tag === 'h1') {
+      const align = el.style?.textAlign;
+      const inner = children().trim();
+      return align && align !== 'left'
+        ? `<div style="text-align:${align}"># ${inner}</div>\n`
+        : `# ${inner}\n`;
+    }
+    if (tag === 'h2') {
+      const align = el.style?.textAlign;
+      const inner = children().trim();
+      return align && align !== 'left'
+        ? `<div style="text-align:${align}">## ${inner}</div>\n`
+        : `## ${inner}\n`;
+    }
 
-      // Ordered list: number each <li> child
-      const tag = el.tagName.toLowerCase();
-      if (tag === 'ol') {
-        let result = '';
-        let index = 1;
-        el.childNodes.forEach(child => {
-          if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).tagName.toLowerCase() === 'li') {
-            let liContent = '';
-            child.childNodes.forEach(c => { liContent += walk(c); });
-            result += `${index}. ${liContent}\n`;
-            index++;
-          }
-        });
-        return result;
-      }
+    if (tag === 'ul') {
+      return (
+        Array.from(el.children)
+          .filter(c => c.tagName.toLowerCase() === 'li')
+          .map(li => `- ${Array.from(li.childNodes).map(walkNode).join('').trim()}`)
+          .join('\n') + '\n'
+      );
+    }
+    if (tag === 'ol') {
+      return (
+        Array.from(el.children)
+          .filter(c => c.tagName.toLowerCase() === 'li')
+          .map((li, i) => `${i + 1}. ${Array.from(li.childNodes).map(walkNode).join('').trim()}`)
+          .join('\n') + '\n'
+      );
+    }
+    if (tag === 'li') return children();
 
-      // Unordered list
-      if (tag === 'ul') {
-        let result = '';
-        el.childNodes.forEach(child => {
-          if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).tagName.toLowerCase() === 'li') {
-            let liContent = '';
-            child.childNodes.forEach(c => { liContent += walk(c); });
-            result += `- ${liContent}\n`;
-          }
-        });
-        return result;
-      }
-
-      // Skip standalone <li> (already handled by ol/ul)
-      if (tag === 'li') {
-        let content = '';
-        el.childNodes.forEach(child => { content += walk(child); });
-        return content;
-      }
-
-      let content = '';
-      el.childNodes.forEach(child => {
-        content += walk(child);
-      });
-
-      const wrapInTags = (inner: string, start: string, end: string) => {
-        if (!inner) return '';
-        const match = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
-        if (!match) return start + inner + end;
-        return `${match[1]}${start}${match[2]}${end}${match[3]}`;
-      };
-
-      if (tag === 'strong' || tag === 'b') return wrapInTags(content, '**', '**');
-      if (tag === 'em' || tag === 'i') return wrapInTags(content, '*', '*');
-      if (tag === 'u') return wrapInTags(content, '<u>', '</u>');
-      if (tag === 'h1') {
-        const align = el.style.textAlign;
-        const headerMd = `# ${content.trim()}\n`;
-        return align && align !== 'left' ? `<div style="text-align: ${align}">${headerMd}</div>\n` : headerMd;
-      }
-      if (tag === 'h2') {
-        const align = el.style.textAlign;
-        const headerMd = `## ${content.trim()}\n`;
-        return align && align !== 'left' ? `<div style="text-align: ${align}">${headerMd}</div>\n` : headerMd;
-      }
-      // Support alignment in p and div
-      if (tag === 'p' || tag === 'div') {
-        const align = el.style.textAlign;
-        if (align && align !== 'left') {
-          return `<div style="text-align: ${align}">${content}</div>\n`;
-        }
-        return `${content}\n`;
-      }
-      if (tag === 'br') return '\n';
-
-      return content;
+    const wrap = (inner: string, o: string, c: string) => {
+      if (inner.includes('\n')) return inner;
+      const m = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      return m ? `${m[1]}${o}${m[2]}${c}${m[3]}` : `${o}${inner}${c}`;
     };
 
-    let markdown = walk(tempDiv);
-    return markdown.replace(/\n{3,}/g, '\n\n');
-  };
+    if (tag === 'strong' || tag === 'b') return wrap(children(), '**', '**');
+    if (tag === 'em'     || tag === 'i') return wrap(children(), '*',  '*');
+    if (tag === 'u')                     return wrap(children(), '<u>', '</u>');
 
-  const cleanEditorHtml = (editor: HTMLElement) => {
-    // Remove empty formatting tags
-    editor.querySelectorAll('strong, b, em, i, u').forEach(tag => {
-      if (tag.textContent?.trim() === '' && tag.children.length === 0) {
-        tag.remove();
+    if (tag === 'span') {
+      const s = el.style ?? {};
+      let r = children();
+      if (s.textDecoration?.includes('underline')) r = wrap(r, '<u>', '</u>');
+      if (s.fontStyle === 'italic')                r = wrap(r, '*',  '*');
+      const fw = parseInt(s.fontWeight ?? '0');
+      if (s.fontWeight === 'bold' || fw >= 600)    r = wrap(r, '**', '**');
+      return r;
+    }
+
+    return children();
+  }
+
+  let md = walkNode(div);
+  md = md.replace(/\n{3,}/g, '\n\n').trim();
+  return md;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKDOWN → HTML
+// ─────────────────────────────────────────────────────────────────────────────
+function pillSpan(code: string, name: string): string {
+  return `<span data-variable="${code}" data-name="${name}"></span>`;
+}
+
+// Reference equality is unreliable here: callers that omit the `placeholders`
+// prop get a fresh `{}` from the default parameter on every render, and
+// callers that pass an inline object literal do the same. Compare contents
+// instead so an unstable object identity doesn't look like a real change.
+function placeholdersEqual(
+  a: Record<string, string>,
+  b: Record<string, string>
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every(k => a[k] === b[k]);
+}
+
+function markdownToHtml(
+  markdown: string,
+  placeholders: Record<string, string> = {}
+): string {
+  if (!markdown?.trim()) return '';
+
+  const normalised = markdown.replace(/^\s*\*\s+(.*)$/gm, '- $1');
+  const lines = normalised.split('\n');
+  let html = '';
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.trim() === '<!--PAGE_BREAK-->') {
+      html += '<div class="page-break" data-page-break="true" style="page-break-after:always;"></div>';
+      i++;
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      html += '<ol>';
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        html += `<li>${applyInlineMarkdown(lines[i].replace(/^\d+\.\s+/, ''))}</li>`;
+        i++;
       }
-    });
-  };
+      html += '</ol>';
+      continue;
+    }
 
-  const applyFormat = (command: string, value: string | undefined = undefined) => {
-    const editor = editorRef.current;
-    if (!editor) return;
-
-    const isFormatting = ['bold', 'italic', 'underline'].includes(command);
-    const isAlignment = ['justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull'].includes(command);
-
-    if (isAlignment) {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        let container = selection.getRangeAt(0).startContainer;
-        const parent = container.nodeType === Node.TEXT_NODE ? container.parentNode : container;
-        const block = (parent as HTMLElement)?.closest('p, div, h1, h2');
-        
-        if (block) {
-          const align = command.replace('justify', '').toLowerCase();
-          const finalAlign = align === 'full' ? 'justify' : align;
-          (block as HTMLElement).style.textAlign = finalAlign;
-        } else {
-          // Fallback to execCommand if no block found
-          document.execCommand(command, false, value);
-        }
+    if (/^-\s+/.test(line)) {
+      html += '<ul>';
+      while (i < lines.length && /^-\s+/.test(lines[i])) {
+        html += `<li>${applyInlineMarkdown(lines[i].replace(/^-\s+/, ''))}</li>`;
+        i++;
       }
-    } else if (isFormatting) {
-      const pills = editor.querySelectorAll('.pill-chip');
-      pills.forEach(pill => pill.setAttribute('contenteditable', 'true'));
-      document.execCommand(command, false, value);
-      pills.forEach(pill => pill.setAttribute('contenteditable', 'false'));
-      cleanEditorHtml(editor);
+      html += '</ul>';
+      continue;
+    }
+
+    if (line.trim().startsWith('<div style="text-align:')) {
+      const m = line.match(
+        /^<div\s+style="text-align:\s*(left|center|right|justify);?">([\s\S]*?)<\/div>$/i
+      );
+      if (m) {
+        const align   = m[1].toLowerCase();
+        const content = m[2].trim();
+        if (content.startsWith('# '))
+          html += `<h1 style="text-align:${align}">${applyInlineMarkdown(content.slice(2))}</h1>`;
+        else if (content.startsWith('## '))
+          html += `<h2 style="text-align:${align}">${applyInlineMarkdown(content.slice(3))}</h2>`;
+        else
+          html += `<p style="text-align:${align}">${applyInlineMarkdown(content)}</p>`;
+      } else {
+        html += line;
+      }
+    } else if (line.startsWith('# ')) {
+      html += `<h1>${applyInlineMarkdown(line.slice(2))}</h1>`;
+    } else if (line.startsWith('## ')) {
+      html += `<h2>${applyInlineMarkdown(line.slice(3))}</h2>`;
+    } else if (line.trim()) {
+      html += `<p>${applyInlineMarkdown(line)}</p>`;
     } else {
-      document.execCommand(command, false, value);
-      cleanEditorHtml(editor);
+      html += '<p></p>';
     }
+    i++;
+  }
 
-    editor.focus();
-    setTimeout(triggerChange, 0);
-  };
+  html = html.replace(/\{\{([^}]+)\}\}/g, (_match, inner) => {
+    const code  = `{{${inner.trim()}}}`;
+    const label = inner.trim();
+    const name  =
+      placeholders[code] ??
+      label.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+    return pillSpan(code, name);
+  });
 
-  const triggerChange = () => {
-    if (onChange && editorRef.current) {
-      onChange(serializeHtmlToMarkdown(editorRef.current.innerHTML));
+  return html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE CLEANER
+// ─────────────────────────────────────────────────────────────────────────────
+// DOM-based cleaner — avoids the regex catch-all span strip that would destroy
+// variable pill spans (data-variable / data-name attributes). Each node type
+// is handled explicitly; unknown spans are unwrapped, not deleted.
+function cleanPastedHtml(raw: string): string {
+  const div = document.createElement('div');
+  div.innerHTML = raw;
+
+  // Remove elements that contribute no content
+  div.querySelectorAll('meta, style').forEach(el => el.remove());
+
+  // Unwrap Google Docs wrapper: <b id="docs-internal-guid-...">
+  div.querySelectorAll('b[id^="docs-internal-guid"]').forEach(el => {
+    el.replaceWith(...Array.from(el.childNodes));
+  });
+
+  // Unwrap cosmetic <b> tags that carry font-weight:normal (Google Docs artefact)
+  div.querySelectorAll<HTMLElement>('b[style]').forEach(el => {
+    if (/font-weight\s*:\s*normal/i.test(el.getAttribute('style') ?? '')) {
+      el.replaceWith(...Array.from(el.childNodes));
     }
-  };
+  });
 
-  const insertHtmlAtSelection = (html: string, selection: Selection | null) => {
-    if (!selection || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
+  // Process spans: preserve variable pills, promote inline styles to semantic
+  // elements, then unwrap anything that's left. Work on a snapshot of the
+  // NodeList because replaceWith mutates the DOM mid-iteration.
+  Array.from(div.querySelectorAll<HTMLElement>('span')).forEach(span => {
+    // Preserve variable pills — never touch these
+    if (span.hasAttribute('data-variable') || span.hasAttribute('data-name')) return;
 
-    let container = range.startContainer;
-    if (container.nodeType === Node.TEXT_NODE) {
-      container = container.parentNode as Element;
+    const style = span.getAttribute('style') ?? '';
+    const children = Array.from(span.childNodes);
+
+    if (/font-weight\s*:\s*(bold|[6-9]\d{2})/i.test(style)) {
+      const strong = document.createElement('strong');
+      strong.append(...children);
+      span.replaceWith(strong);
+    } else if (/font-style\s*:\s*italic/i.test(style)) {
+      const em = document.createElement('em');
+      em.append(...children);
+      span.replaceWith(em);
+    } else if (/text-decoration\s*:[^;]*underline/i.test(style)) {
+      const u = document.createElement('u');
+      u.append(...children);
+      span.replaceWith(u);
+    } else {
+      // Plain span with no meaningful style — unwrap it
+      span.replaceWith(...children);
     }
-    const closestPill = (container as Element)?.closest?.('.pill-chip');
-    if (closestPill) {
-      range.setStartAfter(closestPill);
-      range.collapse(true);
-    }
+  });
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+  // Collapse runs of whitespace introduced by unwrapping
+  return div.innerHTML.replace(/[ \t]{2,}/g, ' ');
+}
 
-    const fragment = document.createDocumentFragment();
-    let node;
-    while ((node = tempDiv.firstChild)) {
-      fragment.appendChild(node);
-    }
+// PDF LAYOUT CONSTANTS — SOURCE OF TRUTH IS pdfUtils.ts
+//
+// These values MUST be kept byte-for-byte identical to the constants at the
+// top of pdfUtils.ts. They are duplicated here (rather than imported) only
+// because the two files may live in different build targets; if your build
+// allows a shared module, move this whole block into e.g. `pdfLayout.ts`
+// and import it from both files instead of hand-syncing two copies.
 
-    const spaceNode = document.createTextNode('\u200B');
-    fragment.appendChild(spaceNode);
+const PAGE_W_MM          = 210;            // jsPDF format: 'a4' → 210mm wide
+const PAGE_H_MM          = 297;            // a4 height
+const MARGIN_MM          = 19;             // pdfUtils.ts MARGIN
+const CONTENT_START_Y_MM = 35;             // pdfUtils.ts CONTENT_START_Y
+const BOTTOM_LIMIT_MM    = PAGE_H_MM - 30; // pdfUtils.ts BOTTOM_LIMIT (267)
+const USABLE_H_MM        = BOTTOM_LIMIT_MM - CONTENT_START_Y_MM; // 232mm/page
 
-    range.deleteContents();
-    range.insertNode(fragment);
+const BASE_FONT_PT   = 12;                 // pdfUtils.ts BASE_FONT_SIZE
+const LINE_SPACING   = 1.15;               // pdfUtils.ts LINE_SPACING
+// pdfUtils.ts: LINE_H = BASE_FONT_SIZE * LINE_SPACING * 0.442778 (pt → mm line box)
+const LINE_H_MM       = BASE_FONT_PT * LINE_SPACING * 0.442778;
+const PARA_SPACING_MM = LINE_H_MM * 0.5;   // pdfUtils.ts PARA_SPACING
 
-    range.setStartAfter(spaceNode);
-    range.setEndAfter(spaceNode);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  };
+const H1_SIZE_PT = 18;
+const H2_SIZE_PT = 16;
+// pdfUtils.ts heading line-height conversion uses 0.352778 (pt → mm), not 0.442778
+const H1_LINE_MM = H1_SIZE_PT * LINE_SPACING * 0.352778;
+const H2_LINE_MM = H2_SIZE_PT * LINE_SPACING * 0.352778;
 
-  useImperativeHandle(ref, () => ({
-    getMarkdown: () => editorRef.current ? serializeHtmlToMarkdown(editorRef.current.innerHTML) : '',
-    setMarkdown: (markdown: string) => {
-      if (editorRef.current) {
-        editorRef.current.innerHTML = parseMarkdownToHtml(markdown);
+// CSS mm is an absolute unit: 1mm = 96/25.4 px, always — no measuring needed.
+const MM_TO_PX = 96 / 25.4;
+
+
+const PREVIEW_CSS = `
+  .pdf-page-content {
+    box-sizing: border-box;
+    width: ${PAGE_W_MM}mm;
+    min-height: ${PAGE_H_MM}mm;
+    margin: 0 auto;
+    padding: ${CONTENT_START_Y_MM}mm ${MARGIN_MM}mm ${PAGE_H_MM - BOTTOM_LIMIT_MM}mm;
+    font-family: 'Tinos', 'Times New Roman', Times, serif;
+    font-size: ${BASE_FONT_PT}pt;
+    line-height: ${LINE_H_MM}mm;
+    color: #1f2937;
+    text-align: justify;
+    text-justify: inter-word;
+    white-space: pre-wrap;
+    background: #ffffff;
+    cursor: text;
+    outline: none;
+  }
+  .pdf-page-content p {
+    margin: 0 0 ${PARA_SPACING_MM}mm 0;
+  }
+  .pdf-page-content h1 {
+    font-size: ${H1_SIZE_PT}pt;
+    line-height: ${H1_LINE_MM}mm;
+    font-weight: bold;
+    color: inherit;
+    margin: ${LINE_H_MM * 1.5}mm 0 ${LINE_H_MM * 0.6}mm 0;
+  }
+  .pdf-page-content h2 {
+    font-size: ${H2_SIZE_PT}pt;
+    line-height: ${H2_LINE_MM}mm;
+    font-weight: bold;
+    color: inherit;
+    margin: ${LINE_H_MM * 0.8}mm 0 ${LINE_H_MM * 0.4}mm 0;
+  }
+  .pdf-page-content strong { font-weight: bold; }
+  .pdf-page-content em { font-style: italic; }
+  .pdf-page-content u { text-decoration: underline; }
+  .pdf-page-content ul, .pdf-page-content ol {
+    margin: ${PARA_SPACING_MM}mm 0;
+    padding-left: 10mm;
+  }
+  .pdf-page-content ul, .pdf-page-content ol {
+    margin: ${PARA_SPACING_MM}mm 0;
+    padding-left: 10mm;
+    list-style-position: outside;
+  }
+  .pdf-page-content ol { list-style-type: decimal; }
+  .pdf-page-content ul { list-style-type: disc; }
+  .pdf-page-content li { margin-bottom: 2mm; }
+  .pdf-page-content[data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
+  }
+`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SMARTEDITOR COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
+  ({
+    initialMarkdown = '',
+    onChange,
+    placeholders = EMPTY_PLACEHOLDERS,
+    className = '',
+    placeholderText = 'Start typing…',
+    showToolbar = true,
+  }, ref) => {
+    const onChangeRef = useRef(onChange);
+    useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+    const placeholdersRef = useRef(placeholders);
+    useEffect(() => { placeholdersRef.current = placeholders; }, [placeholders]);
+
+    const lastSyncedPlaceholdersRef = useRef(placeholders);
+    const lastSyncedMarkdownRef = useRef(initialMarkdown);
+
+    // Ref for the scroll container that wraps EditorContent
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // Debounce timer ref for updatePageLines — prevents layout thrashing on
+    // every keystroke by coalescing rapid calls into a single update that
+    // fires once the user pauses typing.
+    const pageLineDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // ── Editor ───────────────────────────────────────────────────────────────
+    const editor = useEditor({
+      extensions: [
+        StarterKit.configure({ heading: { levels: [1, 2] }, hardBreak: false }),
+        UnderlineExtension,
+        TextAlign.configure({ types: ['heading', 'paragraph'] }),
+        VariablePill,
+        PageBreak,
+      ],
+      content: markdownToHtml(initialMarkdown, placeholders),
+      editorProps: {
+        attributes: {
+          // All real styling now lives in PREVIEW_CSS (`.pdf-page-content`),
+          // which mirrors pdfUtils.ts in real mm/pt units. The old Tailwind
+          // class list + inline `style:` string here used fluid/rem-based
+          // sizing that had no fixed relationship to the PDF's mm geometry,
+          // which is what made the page-break preview drift.
+          class: 'pdf-page-content',
+          'data-placeholder': placeholderText,
+        },
+
+        handlePaste(_view, event) {
+          event.preventDefault();
+          const cd = event.clipboardData;
+          if (!cd) return false;
+          const htmlData = cd.getData('text/html');
+          if (htmlData) {
+            const md = htmlToMarkdown(cleanPastedHtml(htmlData), placeholdersRef.current);
+            window.dispatchEvent(new CustomEvent('smarteditor:insert', {
+              detail: { html: markdownToHtml(md, placeholdersRef.current) }
+            }));
+            return true;
+          }
+          const textData = cd.getData('text/plain');
+          if (textData) {
+            const finalHtml = textData
+              .split(/\r?\n/)
+              .map(l => l.trim() ? `<p>${applyInlineMarkdown(l)}</p>` : '<p></p>')
+              .join('');
+            window.dispatchEvent(new CustomEvent('smarteditor:insert', { detail: { html: finalHtml } }));
+            return true;
+          }
+          return false;
+        },
+
+        handleDrop(_view, event) {
+          const raw = event.dataTransfer?.getData('application/json');
+          if (!raw) return false;
+          try {
+            const v = JSON.parse(raw) as { code: string; name: string };
+            event.preventDefault();
+            window.dispatchEvent(new CustomEvent('smarteditor:insertNode', { detail: v }));
+            return true;
+          } catch { return false; }
+        },
+      },
+
+      onUpdate({ editor: e }) {
+        onChangeRef.current?.(htmlToMarkdown(e.getHTML(), placeholdersRef.current));
+        debouncedUpdatePageLines();
+      },
+    });
+
+    // ── Page boundary lines ──────────────────────────────────────────────────
+    const updatePageLines = useCallback(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+
+      const proseMirror = container.querySelector('.ProseMirror') as HTMLElement | null;
+      if (!proseMirror) return;
+
+      // Remove old lines
+      container.querySelectorAll('.pdf-page-line').forEach(el => el.remove());
+
+      const pageHeightPx   = USABLE_H_MM * MM_TO_PX;          // 232mm of usable text per page
+      const firstPageTopPx = CONTENT_START_Y_MM * MM_TO_PX;   // matches PREVIEW_CSS padding-top
+      const totalHeight    = proseMirror.scrollHeight;
+      const topOffset      = proseMirror.offsetTop;
+
+      let pageY   = firstPageTopPx + pageHeightPx;
+      let pageNum = 2;
+
+      while (pageY < totalHeight) {
+        const line = document.createElement('div');
+        line.className = 'pdf-page-line';
+        line.style.cssText = `
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: ${topOffset + pageY}px;
+          border-top: 2px dashed #94a3b8;
+          pointer-events: none;
+          z-index: 10;
+        `;
+
+        const label = document.createElement('span');
+        label.style.cssText = `
+          position: absolute;
+          right: 8px;
+          top: 2px;
+          font-size: 10px;
+          color: #94a3b8;
+          font-family: sans-serif;
+          background: white;
+          padding: 0 6px;
+          border-radius: 4px;
+          white-space: nowrap;
+          pointer-events: none;
+        `;
+        label.textContent = `page ${pageNum} starts here`;
+
+        line.appendChild(label);
+        container.appendChild(line);
+
+        pageY += pageHeightPx;
+        pageNum++;
       }
-    },
-    insertVariable: (code: string, name: string) => {
-      const pillHtml = createPillHtml(code, name);
-      editorRef.current?.focus();
-      insertHtmlAtSelection(pillHtml, window.getSelection());
-      triggerChange();
-    },
-    applyFormat: (command: string, value: string | undefined = undefined) => {
-      applyFormat(command, value);
-    }
-  }));
+    }, []);
 
-  useEffect(() => {
-    // Set default paragraph separator to p for consistency
-    document.execCommand('defaultParagraphSeparator', false, 'p');
-    document.execCommand('styleWithCSS', false, 'false');
+    // Debounced wrapper — used in onUpdate (keystroke path) to avoid reading
+    // scrollHeight and writing DOM nodes on every character typed.
+    // Discrete actions (insertPageBreak, applyFormat, insertVariable) call
+    // updatePageLines directly since they are not keystroke-rate events.
+    const debouncedUpdatePageLines = useCallback(() => {
+      if (pageLineDebounceRef.current) clearTimeout(pageLineDebounceRef.current);
+      pageLineDebounceRef.current = setTimeout(updatePageLines, 100);
+    }, [updatePageLines]);
 
-    if (editorRef.current && initialMarkdown !== undefined) {
-      const currentMarkdown = serializeHtmlToMarkdown(editorRef.current.innerHTML);
-      if (initialMarkdown !== currentMarkdown) {
-        editorRef.current.innerHTML = parseMarkdownToHtml(initialMarkdown);
+    // Clean up any pending debounce timer on unmount
+    useEffect(() => {
+      return () => {
+        if (pageLineDebounceRef.current) clearTimeout(pageLineDebounceRef.current);
+      };
+    }, []);
+
+    // Run on mount
+    useEffect(() => {
+      if (!editor) return;
+      const timer = setTimeout(updatePageLines, 150);
+      return () => clearTimeout(timer);
+    }, [editor, updatePageLines]);
+
+    // Re-run when initialMarkdown changes externally
+    useEffect(() => {
+      const timer = setTimeout(updatePageLines, 150);
+      return () => clearTimeout(timer);
+    }, [initialMarkdown, updatePageLines]);
+
+    // Also re-run on window resize.
+    useEffect(() => {
+      const onResize = () => updatePageLines();
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }, [updatePageLines]);
+
+    // Re-run once web fonts finish loading.
+    useEffect(() => {
+      if (typeof document === 'undefined' || !('fonts' in document)) return;
+      (document as any).fonts?.ready?.then(() => updatePageLines());
+    }, [updatePageLines]);
+
+    // ── Event listeners ──────────────────────────────────────────────────────
+    useEffect(() => {
+      const handler = (e: Event) => {
+        const { html } = (e as CustomEvent<{ html: string }>).detail;
+        editor?.commands.insertContent(html, { parseOptions: { preserveWhitespace: 'full' } });
+        setTimeout(() => {
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
+        }, 0);
+      };
+      window.addEventListener('smarteditor:insert', handler);
+      return () => window.removeEventListener('smarteditor:insert', handler);
+    }, [editor, updatePageLines]);
+
+    useEffect(() => {
+      const handler = (e: Event) => {
+        const { code, name } = (e as CustomEvent<{ code: string; name: string }>).detail;
+        editor?.chain().focus().insertContent({ type: 'variablePill', attrs: { code, name } }).run();
+        setTimeout(() => {
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
+        }, 0);
+      };
+      window.addEventListener('smarteditor:insertNode', handler);
+      return () => window.removeEventListener('smarteditor:insertNode', handler);
+    }, [editor, updatePageLines]);
+
+    useEffect(() => {
+      if (!editor) return;
+
+      // First check whether anything actually changed since we last adopted
+      // a value — comparing `initialMarkdown` to the editor's *live* content
+      // would always look "different" the moment the user types anything,
+      // because nothing in this ref-based usage pattern feeds edits back
+      // into `initialMarkdown`. That's expected, not a change to adopt.
+      const placeholdersChanged = !placeholdersEqual(lastSyncedPlaceholdersRef.current, placeholders);
+      const markdownPropChanged = initialMarkdown !== lastSyncedMarkdownRef.current;
+      if (!placeholdersChanged && !markdownPropChanged) return;
+
+      // Secondary guard: if a caller *does* feed onChange output back in as
+      // initialMarkdown (a fully-controlled round trip), the prop will also
+      // look "changed" even though it now matches what's already on screen.
+      // Skip the reset in that case so typing doesn't get clobbered there either.
+      const currentMarkdown = htmlToMarkdown(editor.getHTML(), placeholdersRef.current);
+      const liveContentDiffers = initialMarkdown !== currentMarkdown;
+
+      lastSyncedMarkdownRef.current = initialMarkdown;
+      lastSyncedPlaceholdersRef.current = placeholders;
+
+      if (placeholdersChanged || liveContentDiffers) {
+        editor.commands.setContent(markdownToHtml(initialMarkdown, placeholdersRef.current));
+        setTimeout(updatePageLines, 150);
       }
-    }
-  }, [initialMarkdown]);
+    }, [editor, initialMarkdown, placeholders, updatePageLines]);
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const data = e.dataTransfer.getData('application/json');
-    if (!data) return;
+    // ── Format commands ──────────────────────────────────────────────────────
+    const applyFormat = useCallback(
+      (command: string, value?: string) => {
+        if (!editor) return;
+        switch (command) {
+          case 'bold':          editor.chain().focus().toggleBold().run();             break;
+          case 'italic':        editor.chain().focus().toggleItalic().run();           break;
+          case 'underline':     editor.chain().focus().toggleUnderline().run();        break;
+          case 'formatBlock':
+            if (value === 'h1')      editor.chain().focus().toggleHeading({ level: 1 }).run();
+            else if (value === 'h2') editor.chain().focus().toggleHeading({ level: 2 }).run();
+            else                     editor.chain().focus().setParagraph().run();
+            break;
+          case 'justifyLeft':   editor.chain().focus().setTextAlign('left').run();    break;
+          case 'justifyCenter': editor.chain().focus().setTextAlign('center').run();  break;
+          case 'justifyRight':  editor.chain().focus().setTextAlign('right').run();   break;
+          case 'justifyFull':   editor.chain().focus().setTextAlign('justify').run(); break;
+        }
+        setTimeout(() => {
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
+        }, 0);
+      },
+      [editor, updatePageLines]
+    );
 
-    const variable = JSON.parse(data);
-    const pillHtml = createPillHtml(variable.code, variable.name);
+    // ── Page break insert ────────────────────────────────────────────────────
+    const insertPageBreak = useCallback(() => {
+      editor?.chain().focus().insertContent({ type: 'pageBreak' }).run();
+      setTimeout(() => {
+        if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+        updatePageLines();
+      }, 0);
+    }, [editor, updatePageLines]);
 
-    let range: Range | null = null;
-    // @ts-ignore
-    if (document.caretPositionFromPoint) {
-      // @ts-ignore
-      const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-      if (pos) {
-        range = document.createRange();
-        range.setStart(pos.offsetNode, pos.offset);
-        range.collapse(true);
-      }
-    }
-    // @ts-ignore
-    else if (document.caretRangeFromPoint) {
-      // @ts-ignore
-      range = document.caretRangeFromPoint(e.clientX, e.clientY);
-    }
+    useImperativeHandle(ref, () => ({
+      getMarkdown: () =>
+        editor ? htmlToMarkdown(editor.getHTML(), placeholdersRef.current) : '',
+      setMarkdown: (markdown: string) => {
+        editor?.commands.setContent(markdownToHtml(markdown, placeholdersRef.current));
+        setTimeout(updatePageLines, 150);
+      },
+      insertVariable: (code: string, name: string) => {
+        editor?.chain().focus().insertContent({ type: 'variablePill', attrs: { code, name } }).run();
+        setTimeout(() => {
+          if (editor) onChangeRef.current?.(htmlToMarkdown(editor.getHTML(), placeholdersRef.current));
+          updatePageLines();
+        }, 0);
+      },
+      applyFormat,
+    }), [editor, applyFormat, updatePageLines]);
 
-    if (range) {
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      insertHtmlAtSelection(pillHtml, window.getSelection());
-      triggerChange();
-    }
-  };
+    // ── Render ───────────────────────────────────────────────────────────────
+    return (
+      <div className={`flex flex-col h-full min-h-0 ${className}`}>
+        <style>{PREVIEW_CSS}</style>
 
-  return (
-    <div className={`flex flex-col h-full min-h-0 ${className}`}>
-      {showToolbar && (
-        <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50 flex-shrink-0">
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('bold')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Bold"
+        {showToolbar && (
+          <div className="flex items-center gap-1 p-2 border-b border-gray-200 bg-gray-50/50 flex-shrink-0 flex-wrap">
+            <ToolbarBtn title="Bold"        onClick={() => applyFormat('bold')}>            <Bold        className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Italic"      onClick={() => applyFormat('italic')}>          <Italic      className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Underline"   onClick={() => applyFormat('underline')}>       <Underline   className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Heading 1"   onClick={() => applyFormat('formatBlock','h1')}><Heading1    className="w-5 h-5" /></ToolbarBtn>
+            <ToolbarBtn title="Heading 2"   onClick={() => applyFormat('formatBlock','h2')}><Heading2    className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Normal Text" onClick={() => applyFormat('formatBlock','p')}>  <Type       className="w-4 h-4" /></ToolbarBtn>
+            <div className="w-px h-4 bg-gray-200 mx-1" />
+            <ToolbarBtn title="Align Left"   onClick={() => applyFormat('justifyLeft')}>   <AlignLeft    className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Align Center" onClick={() => applyFormat('justifyCenter')}> <AlignCenter  className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Align Right"  onClick={() => applyFormat('justifyRight')}>  <AlignRight   className="w-4 h-4" /></ToolbarBtn>
+            <ToolbarBtn title="Justify"      onClick={() => applyFormat('justifyFull')}>   <AlignJustify className="w-4 h-4" /></ToolbarBtn>
+            <div className="w-px h-4 bg-gray-200 mx-1" />
+            <button
+              title="Insert Page Break"
+              onMouseDown={e => e.preventDefault()}
+              onClick={insertPageBreak}
+              className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all text-xs font-medium flex items-center gap-1 px-2"
+            >
+              <span style={{ fontSize: '13px', lineHeight: 1 }}>⊟</span>
+              <span className="text-[11px]">Page Break</span>
+            </button>
+          </div>
+        )}
+
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div
+            ref={scrollContainerRef}
+            style={{
+              position: 'relative',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              background: '#e2e8f0',
+              padding: '24px 0',
+            }}
           >
-            <Bold className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('italic')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Italic"
-          >
-            <Italic className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('underline')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Underline"
-          >
-            <Underline className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('formatBlock', 'h1')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Heading 1"
-          >
-            <Heading1 className="w-5 h-5" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('formatBlock', 'h2')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Heading 2"
-          >
-            <Heading2 className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('formatBlock', 'p')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Normal Text"
-          >
-            <Type className="w-4 h-4" />
-          </button>
-          <div className="w-px h-4 bg-gray-200 mx-1" />
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('justifyLeft')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Align Left"
-          >
-            <AlignLeft className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('justifyCenter')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Align Center"
-          >
-            <AlignCenter className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('justifyRight')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Align Right"
-          >
-            <AlignRight className="w-4 h-4" />
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => applyFormat('justifyFull')}
-            className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
-            title="Justify"
-          >
-            <AlignJustify className="w-4 h-4" />
-          </button>
+            <EditorContent
+              editor={editor}
+              style={{ display: 'flex', flexDirection: 'column' }}
+            />
+          </div>
         </div>
-      )}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={triggerChange}
-        onDrop={onDrop}
-        onDragOver={(e) => e.preventDefault()}
-        className="flex-1 p-8 bg-white overflow-y-auto outline-none text-[16px] text-gray-800 leading-relaxed white-space-pre-wrap cursor-text empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 empty:before:pointer-events-none empty:before:italic [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-gray-900 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-gray-800 [&_p]:m-0 [&_strong]:font-bold [&_em]:italic [&_i]:italic [&_u]:underline [&_ol]:list-decimal [&_ol]:pl-8 [&_ol]:my-2 [&_ul]:list-disc [&_ul]:pl-8 [&_ul]:my-2 [&_li]:mb-1 min-h-0"
-        style={{
-          whiteSpace: 'pre-wrap',
-          fontFamily: '"Times New Roman", Times, serif',
-          textAlign: 'justify',
-          textJustify: 'inter-word'
-        }}
-        data-placeholder={placeholderText}
-        data-gramm="false"
-      />
-    </div>
-  );
-});
+      </div>
+    );
+  }
+);
 
 SmartEditor.displayName = 'SmartEditor';
+
+function ToolbarBtn({
+  title, onClick, children,
+}: {
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      title={title}
+      onMouseDown={e => e.preventDefault()}
+      onClick={onClick}
+      className="p-1.5 hover:bg-white hover:shadow-sm rounded border border-transparent hover:border-gray-200 text-gray-600 transition-all"
+    >
+      {children}
+    </button>
+  );
+}
