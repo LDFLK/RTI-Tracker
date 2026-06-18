@@ -20,7 +20,12 @@ import TextAlign from '@tiptap/extension-text-align';
 // VARIABLE PILL
 // ─────────────────────────────────────────────────────────────────────────────
 const PillView = ({ node, deleteNode }: any) => (
-  <NodeViewWrapper as="span" style={{ display: 'inline' }}>
+  <NodeViewWrapper
+    as="span"
+    style={{ display: 'inline' }}
+    data-variable={node.attrs.code}
+    data-name={node.attrs.name}
+  >
     <span
       contentEditable={false}
       style={{
@@ -160,6 +165,12 @@ interface SmartEditorProps {
   showToolbar?: boolean;
 }
 
+// Stable reference used as the default for the `placeholders` prop. A plain
+// `{}` literal in a default parameter is re-created on every call, which
+// would make React's effect-dependency check see a "new" value on every
+// render even when no caller-supplied placeholders ever change.
+const EMPTY_PLACEHOLDERS: Record<string, string> = {};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // INLINE MARKDOWN HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -286,6 +297,20 @@ function htmlToMarkdown(
 // ─────────────────────────────────────────────────────────────────────────────
 function pillSpan(code: string, name: string): string {
   return `<span data-variable="${code}" data-name="${name}"></span>`;
+}
+
+// Reference equality is unreliable here: callers that omit the `placeholders`
+// prop get a fresh `{}` from the default parameter on every render, and
+// callers that pass an inline object literal do the same. Compare contents
+// instead so an unstable object identity doesn't look like a real change.
+function placeholdersEqual(
+  a: Record<string, string>,
+  b: Record<string, string>
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every(k => a[k] === b[k]);
 }
 
 function markdownToHtml(
@@ -520,7 +545,7 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
   ({
     initialMarkdown = '',
     onChange,
-    placeholders = {},
+    placeholders = EMPTY_PLACEHOLDERS,
     className = '',
     placeholderText = 'Start typing…',
     showToolbar = true,
@@ -530,6 +555,9 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
 
     const placeholdersRef = useRef(placeholders);
     useEffect(() => { placeholdersRef.current = placeholders; }, [placeholders]);
+
+    const lastSyncedPlaceholdersRef = useRef(placeholders);
+    const lastSyncedMarkdownRef = useRef(initialMarkdown);
 
     // Ref for the scroll container that wraps EditorContent
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -729,13 +757,31 @@ export const SmartEditor = forwardRef<SmartEditorRef, SmartEditorProps>(
 
     useEffect(() => {
       if (!editor) return;
-      const newHtml = markdownToHtml(initialMarkdown, placeholdersRef.current);
-      if (newHtml !== editor.getHTML()) {
-        editor.commands.setContent(newHtml);
+
+      // First check whether anything actually changed since we last adopted
+      // a value — comparing `initialMarkdown` to the editor's *live* content
+      // would always look "different" the moment the user types anything,
+      // because nothing in this ref-based usage pattern feeds edits back
+      // into `initialMarkdown`. That's expected, not a change to adopt.
+      const placeholdersChanged = !placeholdersEqual(lastSyncedPlaceholdersRef.current, placeholders);
+      const markdownPropChanged = initialMarkdown !== lastSyncedMarkdownRef.current;
+      if (!placeholdersChanged && !markdownPropChanged) return;
+
+      // Secondary guard: if a caller *does* feed onChange output back in as
+      // initialMarkdown (a fully-controlled round trip), the prop will also
+      // look "changed" even though it now matches what's already on screen.
+      // Skip the reset in that case so typing doesn't get clobbered there either.
+      const currentMarkdown = htmlToMarkdown(editor.getHTML(), placeholdersRef.current);
+      const liveContentDiffers = initialMarkdown !== currentMarkdown;
+
+      lastSyncedMarkdownRef.current = initialMarkdown;
+      lastSyncedPlaceholdersRef.current = placeholders;
+
+      if (placeholdersChanged || liveContentDiffers) {
+        editor.commands.setContent(markdownToHtml(initialMarkdown, placeholdersRef.current));
         setTimeout(updatePageLines, 150);
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialMarkdown]);
+    }, [editor, initialMarkdown, placeholders, updatePageLines]);
 
     // ── Format commands ──────────────────────────────────────────────────────
     const applyFormat = useCallback(
