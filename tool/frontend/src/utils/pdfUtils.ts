@@ -10,14 +10,8 @@ interface PDFData {
   content: string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LAYOUT CONSTANTS — SOURCE OF TRUTH FOR SmartEditor.tsx
-//
-// These are the canonical values. SmartEditor.tsx's PREVIEW_CSS / page-break
-// math duplicates them in mm/pt; if you change anything here, change it
-// there too (or better, move both copies into one shared module that both
-// files import).
-// ─────────────────────────────────────────────────────────────────────────────
+
+//If values here are changed change in SmartEditor.tsx's PREVIEW_CSS / page-break too
 const BASE_FONT_SIZE  = 12;
 const LINE_SPACING    = 1.15;
 const LINE_H          = BASE_FONT_SIZE * LINE_SPACING * 0.442778;
@@ -307,13 +301,14 @@ function renderRowJustified(
   flushUl(x);
 }
 
+
 export const generateRTIPDF = async (
   data: PDFData
 ): Promise<{ blob: Blob; fileName: string; finalMarkdown: string }> => {
   const { title, requestDate, sender, receiver, content: rawContent } = data;
 
-  const resolved     = replaceVariables(rawContent, requestDate, sender, receiver);
-  const stripped     = stripPillHtml(resolved);
+  const resolved      = replaceVariables(rawContent, requestDate, sender, receiver);
+  const stripped      = stripPillHtml(resolved);
   const finalMarkdown = normalizeInlineStyles(sanitizeForPDF(stripped));
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -339,8 +334,11 @@ export const generateRTIPDF = async (
 
   const rawLines = finalMarkdown.split('\n');
 
-  for (const line of rawLines) {
-    let trimmed = line.trim();
+  // Use an indexed for loop so rawLines[i + 1] is O(1). A for...of loop with
+  // rawLines.indexOf(line) inside is O(N²) and also returns the wrong index
+  // when duplicate lines exist (indexOf always finds the first occurrence).
+  for (let i = 0; i < rawLines.length; i++) {
+    let trimmed = rawLines[i].trim();
 
     // Page break marker — start a fresh page immediately, resetting Y back
     // to CONTENT_START_Y. SmartEditor serialises the PageBreak node as
@@ -444,7 +442,7 @@ export const generateRTIPDF = async (
       continue;
     }
 
-    const nextLine = rawLines[rawLines.indexOf(line) + 1]?.trim() ?? '';
+    const nextLine        = rawLines[i + 1]?.trim() ?? '';
     const isShortLine     = trimmed.length < 45;
     const nextIsShortLine = nextLine.length > 0 && nextLine.length < 45 && !nextLine.startsWith('#') && !nextLine.startsWith('<div');
     cursorY = renderParagraph(doc, trimmed, activeAlign, MARGIN, CONTENT_W, BASE_FONT_SIZE, LINE_H, cursorY, BOTTOM_LIMIT);
